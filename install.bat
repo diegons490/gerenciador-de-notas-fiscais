@@ -1,68 +1,64 @@
 @echo off
-REM Instalador do aplicativo Gerenciador de Notas Fiscais (Windows - nível usuário)
+setlocal enabledelayedexpansion
 
-set APP_NAME=Gerenciador de Notas Fiscais
-set APP_DIR_NAME=gerenciador_de_notas_fiscais
-set INSTALL_DIR=%LOCALAPPDATA%\%APP_DIR_NAME%
-set DATA_DIR=%INSTALL_DIR%\data
-set ICON_FILE=%INSTALL_DIR%\icons\NF.png
-set SHORTCUT_NAME=%APP_NAME%.lnk
+set "APP_NAME=Gerenciador de Notas Fiscais"
+set "APP_DIR_NAME=gerenciador-de-notas-fiscais"
+set "INSTALL_DIR=%USERPROFILE%\AppData\Local\%APP_DIR_NAME%"
+set "DATA_DIR=%INSTALL_DIR%\data"
+set "START_MENU_DIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs"
 
-echo [1/4] Verificando dependencias...
+echo Verificando dependências...
 
-REM Verifica se Python está instalado
-where python >nul 2>&1
-if %errorlevel% neq 0 (
-    echo Erro: Python nao encontrado no PATH.
-    echo Instale o Python 3.10 ou superior.
+:: Verifica Python
+python --version >nul 2>&1
+if errorlevel 1 (
+    echo ERRO: Python não encontrado!
+    echo Instale Python em https://python.org
     pause
     exit /b 1
 )
 
-REM Verifica se FreeSimpleGUI esta instalado
-python -c "import FreeSimpleGUI" >nul 2>&1
-if %errorlevel% neq 0 (
-    echo Erro: FreeSimpleGUI nao encontrado!
-    echo Instale usando: pip install FreeSimpleGUI
-    pause
-    exit /b 1
+:: Verifica bibliotecas
+python -c "import ttkbootstrap" >nul 2>&1
+if errorlevel 1 (
+    echo AVISO: ttkbootstrap não encontrado. Instalando...
+    pip install ttkbootstrap
 )
 
-echo [2/4] Instalando %APP_NAME%...
+python -c "import PIL" >nul 2>&1
+if errorlevel 1 (
+    echo AVISO: Pillow não encontrado. Instalando...
+    pip install pillow
+)
 
-REM Cria pastas
+echo Instalando %APP_NAME%...
+
+:: Cria diretórios
 mkdir "%INSTALL_DIR%" >nul 2>&1
 mkdir "%DATA_DIR%" >nul 2>&1
 
-REM Copia todos arquivos do projeto para INSTALL_DIR
-xcopy "%~dp0*" "%INSTALL_DIR%\" /E /I /Y >nul
+:: Copia arquivos
+xcopy /E /I /Y "%~dp0*" "%INSTALL_DIR%"
 
-REM Cria arquivos padrão se não existirem
-if not exist "%DATA_DIR%\notas.db" (
-    type nul > "%DATA_DIR%\notas.db"
-)
-if not exist "%DATA_DIR%\config.json" (
-    echo {"tema": "SystemDefault"} > "%DATA_DIR%\config.json"
-)
+:: Cria estrutura de dados
+if not exist "%DATA_DIR%\notas.db" type nul > "%DATA_DIR%\notas.db"
+if not exist "%DATA_DIR%\cadastros.db" type nul > "%DATA_DIR%\cadastros.db"
+echo {"tema": "cosmo", "window_state": {}} > "%DATA_DIR%\config.json"
 
-echo [3/4] Criando atalho no Menu Iniciar...
+:: Cria atalho
+set "SCRIPT=%INSTALL_DIR%\launcher.vbs"
+echo Set WshShell = CreateObject("WScript.Shell") > "!SCRIPT!"
+echo Set lnk = WshShell.CreateShortcut("%START_MENU_DIR%\%APP_NAME%.lnk") >> "!SCRIPT!"
+echo lnk.TargetPath = "python" >> "!SCRIPT!"
+echo lnk.Arguments = """%INSTALL_DIR%\main.py""" >> "!SCRIPT!"
+echo lnk.WorkingDirectory = "%INSTALL_DIR%" >> "!SCRIPT!"
+echo lnk.Save >> "!SCRIPT!"
 
-REM Cria um script lançador .bat dentro da pasta de instalação
-(
-echo @echo off
-echo set GERENCIADOR_NOTAS_DATA_DIR=%DATA_DIR%
-echo python "%INSTALL_DIR%\main.py" %%*
-) > "%INSTALL_DIR%\start_app.bat"
+wscript "!SCRIPT!"
+del "!SCRIPT!"
 
-REM Usa PowerShell para criar um atalho .lnk no Menu Iniciar
-set START_MENU=%APPDATA%\Microsoft\Windows\Start Menu\Programs
-powershell -command ^
-    "$s=(New-Object -COM WScript.Shell).CreateShortcut('%START_MENU%\%SHORTCUT_NAME%');" ^
-    "$s.TargetPath='%INSTALL_DIR%\start_app.bat';" ^
-    "$s.IconLocation='%ICON_FILE%';" ^
-    "$s.Save()"
-
-echo [4/4] Instalacao concluida!
-echo Voce pode iniciar o aplicativo pelo Menu Iniciar como "%APP_NAME%" ou executar:
-echo "%INSTALL_DIR%\start_app.bat"
+echo Instalação concluída com sucesso!
+echo.
+echo O aplicativo foi instalado em: %INSTALL_DIR%
+echo Procure por "%APP_NAME%" no Menu Iniciar.
 pause
