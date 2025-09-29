@@ -18,7 +18,16 @@ if errorlevel 1 (
     exit /b 1
 )
 
-:: Verifica bibliotecas
+:: Verifica se pythonw existe (Python para Windows sem console)
+where pythonw >nul 2>&1
+if errorlevel 1 (
+    echo AVISO: pythonw.exe não encontrado. Criando cópia de python.exe como pythonw.exe...
+    for /f "delims=" %%I in ('where python') do (
+        copy "%%~I" "%%~dpIpythonw.exe" >nul 2>&1
+    )
+)
+
+:: Verifica bibliotecas necessárias
 python -c "import ttkbootstrap" >nul 2>&1
 if errorlevel 1 (
     echo AVISO: ttkbootstrap não encontrado. Instalando...
@@ -37,28 +46,31 @@ echo Instalando %APP_NAME%...
 mkdir "%INSTALL_DIR%" >nul 2>&1
 mkdir "%DATA_DIR%" >nul 2>&1
 
-:: Copia arquivos
-xcopy /E /I /Y "%~dp0*" "%INSTALL_DIR%"
+:: Copia arquivos do projeto
+xcopy /E /I /Y "%~dp0*" "%INSTALL_DIR%" >nul
 
-:: Cria estrutura de dados
+:: Cria estrutura de dados inicial
 if not exist "%DATA_DIR%\notas.db" type nul > "%DATA_DIR%\notas.db"
 if not exist "%DATA_DIR%\cadastros.db" type nul > "%DATA_DIR%\cadastros.db"
-echo {"tema": "cosmo", "window_state": {}} > "%DATA_DIR%\config.json"
+if not exist "%DATA_DIR%\config.json" echo {"tema": "cosmo", "window_state": {}} > "%DATA_DIR%\config.json"
 
-:: Cria atalho
-set "SCRIPT=%INSTALL_DIR%\launcher.vbs"
-echo Set WshShell = CreateObject("WScript.Shell") > "!SCRIPT!"
-echo Set lnk = WshShell.CreateShortcut("%START_MENU_DIR%\%APP_NAME%.lnk") >> "!SCRIPT!"
-echo lnk.TargetPath = "python" >> "!SCRIPT!"
-echo lnk.Arguments = """%INSTALL_DIR%\main.py""" >> "!SCRIPT!"
-echo lnk.WorkingDirectory = "%INSTALL_DIR%" >> "!SCRIPT!"
-echo lnk.Save >> "!SCRIPT!"
+:: Cria atalho no Menu Iniciar com PowerShell
+set "PS_SCRIPT=%INSTALL_DIR%\create_shortcut.ps1"
 
-wscript "!SCRIPT!"
-del "!SCRIPT!"
+> "%PS_SCRIPT%" echo $WshShell = New-Object -ComObject WScript.Shell
+>> "%PS_SCRIPT%" echo $Shortcut = $WshShell.CreateShortcut("%START_MENU_DIR%\%APP_NAME%.lnk")
+>> "%PS_SCRIPT%" echo $Shortcut.TargetPath = "pythonw.exe"
+>> "%PS_SCRIPT%" echo $Shortcut.Arguments = '%INSTALL_DIR%\main.py'
+>> "%PS_SCRIPT%" echo $Shortcut.WorkingDirectory = "%INSTALL_DIR%"
+>> "%PS_SCRIPT%" echo $Shortcut.IconLocation = "%INSTALL_DIR%\icons\GNF.ico"
+>> "%PS_SCRIPT%" echo $Shortcut.WindowStyle = 1
+>> "%PS_SCRIPT%" echo $Shortcut.Save()
 
-echo Instalação concluída com sucesso!
+powershell -ExecutionPolicy Bypass -File "%PS_SCRIPT%"
+del "%PS_SCRIPT%" >nul 2>&1
+
 echo.
+echo Instalação concluída com sucesso!
 echo O aplicativo foi instalado em: %INSTALL_DIR%
 echo Procure por "%APP_NAME%" no Menu Iniciar.
 pause
