@@ -78,6 +78,7 @@ Ou pelo menu de aplicativos.
 ```bat
 install.bat
 ```
+*Ou use o arquivo .exe padrão do Windwos para mais comodiade.*
 
 O instalador fará:
 
