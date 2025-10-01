@@ -1,6 +1,9 @@
 # Gerenciador de Notas Fiscais
 
-![Preview](preview.png) <!-- Substitua 'preview.png' pela imagem de demonstração -->
+<p align="center">
+  <img src="preview.png" alt="Preview" />
+</p>
+
 
 ## Descrição
 
