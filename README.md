@@ -73,12 +73,15 @@ Ou pelo menu de aplicativos.
 
 ### Windows (usuário local)
 
-1. Execute o **install.bat** clicando duas vezes ou pelo prompt de comando:
+Você pode instalar de duas maneiras:
+
+#### 1. Usando o **install.bat**
+
+Clique duas vezes ou execute pelo Prompt de Comando:
 
 ```bat
 install.bat
 ```
-*Ou use o arquivo .exe padrão do Windwos para mais comodiade.*
 
 O instalador fará:
 
@@ -92,7 +95,15 @@ O instalador fará:
 uninstall.bat
 ```
 
-> Após a instalação, abra o aplicativo pelo Menu Iniciar.
+#### 2. Usando o **arquivo .exe**
+
+Basta executar o arquivo `Gerenciador De Notas Fiscais.exe`:
+
+* O instalador criará a pasta de instalação conforme for definido
+* Criará automaticamente o atalho no Menu Iniciar
+* Copiará os arquivos necessários e estará pronto para execução, sem precisar instalar dependências antes.
+
+> Para desinstalar, vá em **Adicionar ou Remover Programas** no Windows.
 
 ---
 
