@@ -448,6 +448,12 @@ class MainMenu(ttk.Frame):
                 "Altera o tema da interface.",
             ),
             (
+                "Sobre",
+                "INFO-OUTLINE",
+                self.mostrar_sobre,
+                "Sobre este projeto.",
+            ),
+            (
                 "Sair",
                 DARK,
                 lambda: self.controller.handle_event(EventKeys.EXIT),
@@ -775,3 +781,19 @@ class MainMenu(ttk.Frame):
         # atualizar estados relacionados a campos e pesquisa
         self.update_limpar_campos_button_state()
         self.update_search_clear_state()
+
+    def mostrar_sobre(self):
+        """Exibe informações sobre o projeto."""
+        from ..utils.popups import ask_yes_no
+        import webbrowser
+
+        resposta = ask_yes_no(
+            self,
+            "Este é um projeto de código aberto desenvolvido para gerenciamento de notas fiscais.\n\n"
+            "Gostaria de visitar o repositório oficial no GitHub para obter mais informações,\n"
+            "ver o código-fonte ou contribuir com o projeto?",
+            "Sobre o Projeto"
+        )
+
+        if resposta == "Sim":
+            webbrowser.open("https://github.com/diegons490/gerenciador-de-notas-fiscais")

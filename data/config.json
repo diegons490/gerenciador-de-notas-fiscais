@@ -1,0 +1,14 @@
+{
+    "theme": "darkly",
+    "mode": "dark",
+    "window_size": [
+        1200,
+        800
+    ],
+    "window_position": [
+        108,
+        160
+    ],
+    "window_maximized": false,
+    "window_state": "normal"
+}
