@@ -153,6 +153,19 @@ Contribuições são bem-vindas! Você pode:
 
 ---
 
+## Doações
+
+Se você gosta do projeto e deseja contribuir, pode fazer uma doação via Pix utilizando a chave abaixo ou escaneando o QR Code:
+
+**Chave Pix:** `8904ad59-b488-42d8-8ea3-bb008b8dfd95`
+
+<p align="center">
+  <img src="qrcode.png" alt="Doações" />
+</p>
+
+
+---
+
 ## Licença
 
 Este projeto é licenciado sob a [MIT License](LICENSE).
