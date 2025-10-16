@@ -1,3 +1,2 @@
-tkinter
-ttkbootstrap
-Pillow
+ttkbootstrap>=0.5.0
+Pillow>=9.5.0

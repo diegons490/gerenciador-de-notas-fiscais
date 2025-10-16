@@ -1,6 +1,6 @@
 # gui/modules/table_manager.py
 """
-Módulo para gerenciar tabelas genéricas (Notas, Clientes, etc.) usando grid.
+Module for managing generic tables (Invoices, Customers, etc.) using grid.
 """
 
 import re
@@ -15,17 +15,17 @@ from ..utils.popups import show_error
 
 
 class SortManager:
-    """Gerenciador de ordenação personalizada para tabelas"""
+    """Custom sorting manager for tables"""
 
     @staticmethod
     def sort_numeric_currency(value):
-        """Converte valores monetários para numéricos"""
+        """Converts currency values to numeric"""
         if not value or value == "-":
             return 0.0
 
-        # Remove tudo que não seja dígito ou vírgula (mantém separador decimal)
+        # Remove everything that's not a digit or comma (keeps decimal separator)
         cleaned = re.sub(r"[^\d,]", "", str(value))
-        # Trocar vírgula por ponto para float
+        # Replace comma with dot for float
         cleaned = cleaned.replace(".", "").replace(",", ".")
         try:
             return float(cleaned)
@@ -34,14 +34,14 @@ class SortManager:
 
     @staticmethod
     def sort_date(value):
-        """Converte datas para objeto datetime para ordenação"""
+        """Converts dates to datetime object for sorting"""
         if not value or value == "-":
             return datetime.min
 
         try:
             return datetime.strptime(str(value), "%d/%m/%Y")
         except Exception:
-            # fallback tentando ISO
+            # fallback trying ISO
             try:
                 return datetime.strptime(str(value), "%Y-%m-%d")
             except Exception:
@@ -49,7 +49,7 @@ class SortManager:
 
     @staticmethod
     def sort_numeric(value):
-        """Converte valores numéricos simples"""
+        """Converts simple numeric values"""
         if not value or value == "-":
             return 0
 
@@ -60,49 +60,49 @@ class SortManager:
 
     @staticmethod
     def sort_string(value):
-        """Ordenação case-insensitive para strings"""
+        """Case-insensitive string sorting"""
         return (str(value) or "").lower()
 
     @staticmethod
-    def sort_telefone(value):
-        """Ordenação específica para telefones"""
+    def sort_phone(value):
+        """Specific sorting for phones"""
         if not value:
             return ""
         return re.sub(r"[^\d]", "", str(value))
 
     @staticmethod
     def sort_cnpj(value):
-        """Ordenação específica para CNPJ"""
+        """Specific sorting for CNPJ"""
         if not value:
             return ""
         return re.sub(r"[^\d]", "", str(value))
 
     def configure_column_sorting(self, treeview, col_id, sort_function):
-        """Configura a ordenação personalizada para uma coluna específica"""
+        """Configures custom sorting for a specific column"""
 
         def sort_by_column(reverse):
-            # Obter todos os itens (valor da célula, item_id)
+            # Get all items (cell value, item_id)
             items = [
                 (treeview.set(child, col_id), child)
                 for child in treeview.get_children("")
             ]
 
-            # Ordenar usando a função personalizada (aplicada ao valor da célula)
+            # Sort using custom function (applied to cell value)
             items.sort(key=lambda x: sort_function(x[0]), reverse=reverse)
 
-            # Reorganizar itens na treeview
+            # Reorganize items in treeview
             for index, (_, child) in enumerate(items):
                 treeview.move(child, "", index)
 
-            # Reconfigurar o heading para inverter na próxima vez
+            # Reconfigure heading to invert next time
             treeview.heading(col_id, command=lambda: sort_by_column(not reverse))
 
-        # Configurar heading inicial (ordenação ascendente na primeira vez)
+        # Configure initial heading (ascending order first time)
         treeview.heading(col_id, command=lambda: sort_by_column(False))
 
 
 class BaseTableManager:
-    """Classe base para gerenciar tabelas genéricas."""
+    """Base class for managing generic tables."""
 
     def __init__(self, database):
         self.database = database
@@ -113,12 +113,12 @@ class BaseTableManager:
         self.sort_manager = SortManager()
 
     def bind_selection_event(self, callback):
-        """Vincula evento de seleção da tabela."""
+        """Binds table selection event."""
         if self.table and hasattr(self.table, "view"):
             self.table.view.bind("<<TreeviewSelect>>", callback)
 
     def get_selected_ids(self):
-        """Obtém os IDs dos itens selecionados."""
+        """Gets IDs of selected items."""
         if not self.table or not hasattr(self.table, "view"):
             return []
 
@@ -135,13 +135,13 @@ class BaseTableManager:
         return selected_ids
 
     def clear_selection(self):
-        """Limpa a seleção da tabela."""
+        """Clears table selection."""
         if self.table and hasattr(self.table, "view"):
             self.table.view.selection_remove(self.table.view.selection())
 
 
-class NotesTableManager(BaseTableManager):
-    """Gerencia a tabela de Notas Fiscais."""
+class InvoicesTableManager(BaseTableManager):
+    """Manages Invoices table."""
 
     def create_table(self, parent):
         list_frame = ttk.LabelFrame(
@@ -155,7 +155,7 @@ class NotesTableManager(BaseTableManager):
         table_container.columnconfigure(0, weight=1)
         table_container.rowconfigure(0, weight=1)
 
-        # Colunas da tabela (text -> heading exibido)
+        # Table columns (text -> displayed heading)
         coldata = [
             {"text": "ID", "stretch": False, "width": 50},
             {"text": "Data", "stretch": False, "width": 100},
@@ -187,32 +187,32 @@ class NotesTableManager(BaseTableManager):
         scrollbar.grid(row=0, column=1, sticky="ns")
         self.table.view.configure(yscrollcommand=scrollbar.set)
 
-        # Configurar ordenação personalizada (aplica pelos headings atuais)
+        # Configure custom sorting (applies through current headings)
         self.configure_custom_sorting()
 
         return list_frame
 
     def configure_custom_sorting(self):
-        """Configura a ordenação personalizada para cada coluna"""
+        """Configures custom sorting for each column"""
         if not self.table or not hasattr(self.table, "view"):
             return
 
         treeview = self.table.view
 
-        # Mapear texto do heading para função de ordenação
+        # Map heading text to sorting function
         sort_config = {
             "ID": self.sort_manager.sort_numeric,
             "Data": self.sort_manager.sort_date,
             "Número": self.sort_manager.sort_numeric,
             "Cliente": self.sort_manager.sort_string,
             "Valor": self.sort_manager.sort_numeric_currency,
-            "Telefone": self.sort_manager.sort_telefone,
+            "Telefone": self.sort_manager.sort_phone,
             "Email": self.sort_manager.sort_string,
             "CNPJ": self.sort_manager.sort_cnpj,
             "Endereço": self.sort_manager.sort_string,
         }
 
-        # Para cada coluna do treeview, descobrir o texto do heading e aplicar função se houver
+        # For each treeview column, discover heading text and apply function if exists
         for col_id in treeview["columns"]:
             heading_info = treeview.heading(col_id)
             heading_text = (
@@ -221,44 +221,44 @@ class NotesTableManager(BaseTableManager):
                 else heading_info
             )
             if heading_text in sort_config:
-                # passar col_id (id real) para configure_column_sorting
+                # pass col_id (real id) to configure_column_sorting
                 self.sort_manager.configure_column_sorting(
                     treeview, col_id, sort_config[heading_text]
                 )
 
-    def update_table_data(self, notes):
-        """Atualiza os dados da tabela."""
+    def update_table_data(self, invoices):
+        """Updates table data."""
         try:
             rowdata = []
-            for note in notes:
-                # Garantir que temos pelo menos 9 elementos
-                note = (
-                    tuple(list(note) + [""] * (9 - len(note)))
-                    if len(note) < 9
-                    else note
+            for invoice in invoices:
+                # Ensure we have at least 9 elements
+                invoice = (
+                    tuple(list(invoice) + [""] * (9 - len(invoice)))
+                    if len(invoice) < 9
+                    else invoice
                 )
 
-                nid = note[0]
-                data_br = note[1] if len(note) > 1 else "-"
-                numero = note[2] if len(note) > 2 else "-"
-                cliente = note[3] if len(note) > 3 else "-"
-                valor = utils.formatar_moeda(note[4]) if len(note) > 4 else "-"
-                telefone = note[5] if len(note) > 5 else ""
-                email = note[6] if len(note) > 6 else ""
-                cnpj = note[7] if len(note) > 7 else ""
-                endereco = note[8] if len(note) > 8 else ""
+                invoice_id = invoice[0]
+                date_br = invoice[1] if len(invoice) > 1 else "-"
+                number = invoice[2] if len(invoice) > 2 else "-"
+                customer = invoice[3] if len(invoice) > 3 else "-"
+                value = utils.format_currency(invoice[4]) if len(invoice) > 4 else "-"
+                phone = invoice[5] if len(invoice) > 5 else ""
+                email = invoice[6] if len(invoice) > 6 else ""
+                cnpj = invoice[7] if len(invoice) > 7 else ""
+                address = invoice[8] if len(invoice) > 8 else ""
 
                 rowdata.append(
                     (
-                        nid,
-                        data_br,
-                        numero,
-                        cliente,
-                        valor,
-                        telefone or "-",
+                        invoice_id,
+                        date_br,
+                        number,
+                        customer,
+                        value,
+                        phone or "-",
                         email or "-",
                         cnpj or "-",
-                        endereco or "-",
+                        address or "-",
                     )
                 )
 
@@ -275,12 +275,12 @@ class NotesTableManager(BaseTableManager):
             ]
 
             if hasattr(self.table, "build_table_data"):
-                # Reconstruir conteúdo (recria headings internamente)
+                # Rebuild content (recreates headings internally)
                 self.table.build_table_data(coldata, rowdata)
-                # depois de reconstruir, reaplicar a ordenação personalizada
+                # after rebuilding, reapply custom sorting
                 self.configure_custom_sorting()
             else:
-                # Fallback para versões mais antigas do ttkbootstrap
+                # Fallback for older ttkbootstrap versions
                 for item in self.table.view.get_children():
                     self.table.view.delete(item)
                 for row in rowdata:
@@ -290,8 +290,8 @@ class NotesTableManager(BaseTableManager):
             show_error(None, f"Erro ao atualizar tabela: {e}")
 
 
-class ClientsTableManager(BaseTableManager):
-    """Gerencia a tabela de Clientes."""
+class CustomersTableManager(BaseTableManager):
+    """Manages Customers table."""
 
     def create_table(self, parent):
         list_frame = ttk.LabelFrame(parent, text="Clientes Cadastrados", bootstyle=INFO)
@@ -331,13 +331,13 @@ class ClientsTableManager(BaseTableManager):
         scrollbar.grid(row=0, column=1, sticky="ns")
         self.table.view.configure(yscrollcommand=scrollbar.set)
 
-        # Configurar ordenação personalizada
+        # Configure custom sorting
         self.configure_custom_sorting()
 
         return list_frame
 
     def configure_custom_sorting(self):
-        """Configura a ordenação personalizada para cada coluna"""
+        """Configures custom sorting for each column"""
         if not self.table or not hasattr(self.table, "view"):
             return
 
@@ -346,7 +346,7 @@ class ClientsTableManager(BaseTableManager):
         sort_config = {
             "ID": self.sort_manager.sort_numeric,
             "Nome": self.sort_manager.sort_string,
-            "Telefone": self.sort_manager.sort_telefone,
+            "Telefone": self.sort_manager.sort_phone,
             "Email": self.sort_manager.sort_string,
             "CNPJ": self.sort_manager.sort_cnpj,
             "Endereço": self.sort_manager.sort_string,
@@ -364,31 +364,32 @@ class ClientsTableManager(BaseTableManager):
                     treeview, col_id, sort_config[heading_text]
                 )
 
-    def update_table_data(self, clients):
+    def update_table_data(self, customers):
+        """Updates customers table data."""
         try:
             rowdata = []
-            for client in clients:
-                client = (
-                    tuple(list(client) + [""] * (6 - len(client)))
-                    if len(client) < 6
-                    else client
+            for customer in customers:
+                customer = (
+                    tuple(list(customer) + [""] * (6 - len(customer)))
+                    if len(customer) < 6
+                    else customer
                 )
 
-                cid = client[0]
-                nome = client[1] if len(client) > 1 else "-"
-                telefone = client[2] if len(client) > 2 else "-"
-                email = client[3] if len(client) > 3 else "-"
-                cnpj = client[4] if len(client) > 4 else "-"
-                endereco = client[5] if len(client) > 5 else "-"
+                customer_id = customer[0]
+                name = customer[1] if len(customer) > 1 else "-"
+                phone = customer[2] if len(customer) > 2 else "-"
+                email = customer[3] if len(customer) > 3 else "-"
+                cnpj = customer[4] if len(customer) > 4 else "-"
+                address = customer[5] if len(customer) > 5 else "-"
 
                 rowdata.append(
                     (
-                        cid,
-                        nome or "-",
-                        telefone or "-",
+                        customer_id,
+                        name or "-",
+                        phone or "-",
                         email or "-",
                         cnpj or "-",
-                        endereco or "-",
+                        address or "-",
                     )
                 )
 
@@ -403,7 +404,7 @@ class ClientsTableManager(BaseTableManager):
 
             if hasattr(self.table, "build_table_data"):
                 self.table.build_table_data(coldata, rowdata)
-                # reaplicar ordenação após rebuild
+                # reapply sorting after rebuild
                 self.configure_custom_sorting()
             else:
                 for item in self.table.view.get_children():
@@ -415,13 +416,13 @@ class ClientsTableManager(BaseTableManager):
             show_error(None, f"Erro ao atualizar tabela de clientes: {e}")
 
 
-# Factory para criar os table managers
+# Factory for creating table managers
 class TableManagerFactory:
     @staticmethod
     def create_table_manager(manager_type, database):
-        if manager_type == "notes":
-            return NotesTableManager(database)
-        elif manager_type == "clients":
-            return ClientsTableManager(database)
+        if manager_type == "invoices":
+            return InvoicesTableManager(database)
+        elif manager_type == "customers":
+            return CustomersTableManager(database)
         else:
             raise ValueError(f"Tipo de manager desconhecido: {manager_type}")

@@ -1,12 +1,13 @@
 # gui/modules/main_menu.py
 """
-Interface principal do sistema - versão modularizada com grid.
-Correções:
-- Implementação própria da barra de pesquisa para evitar perda de foco do Entry durante digitação.
-- Clear (Limpar) agora apaga totalmente a string, restaura a tabela e refoca o Entry.
-- Botão "Limpar Campos" fica habilitado apenas quando algum campo do formulário contém caractere.
-- Botão "Limpar" ao lado da pesquisa fica habilitado apenas quando há texto na pesquisa.
-- Após atualização da tabela, o foco e o cursor do Entry são restaurados usando after_idle.
+Main system interface - grid modularized version.
+Corrections:
+- Own search bar implementation to avoid Entry focus loss during typing.
+- Clear (Limpar) now completely erases the string, restores the table and refocuses the Entry.
+- "Clear Fields" button is only enabled when any form field contains characters.
+- "Clear" button next to search is only enabled when there is text in the search.
+- After table update, focus and cursor are restored using after_idle.
+- Absorbed all SearchManager functionality to simplify code.
 """
 
 import tkinter as tk
@@ -19,16 +20,15 @@ from ..keys import EventKeys
 from ..utils.popups import show_error, show_info, show_warning
 from ..utils import create_info_tooltip, create_success_tooltip
 from ..modules.table_manager import TableManagerFactory
-from ..modules.search_manager import SearchManager
-from ..modules.add_invoice import AddInvoiceManager
-from ..modules.edit_invoice import EditInvoiceManager
-from ..modules.delete_note import DeleteNotes
-from ..modules.export_note import ExportNotes
+from ..modules.invoice_add import InvoiceAddManager
+from ..modules.invoice_edit import InvoiceEditManager
+from ..modules.invoice_delete import InvoiceDelete
+from ..modules.invoice_export import InvoiceExport
 from ..modules.backup import ConfigBackup
 
 
 class MainMenu(ttk.Frame):
-    """View principal modularizada usando grid."""
+    """Main modularized view using grid."""
 
     def __init__(self, parent, controller, theme_manager, database):
         super().__init__(parent)
@@ -36,73 +36,72 @@ class MainMenu(ttk.Frame):
         self.theme_manager = theme_manager
         self.database = database
 
-        # Inicializar módulos
-        self.table_manager = TableManagerFactory.create_table_manager("notes", database)
-        self.search_manager = SearchManager(
-            database
-        )  # mantemos para funções utilitárias
-        self.add_manager = AddInvoiceManager(database, theme_manager)
-        self.edit_manager = EditInvoiceManager(database, theme_manager)
-        self.delete_module = DeleteNotes(self, controller, theme_manager, database)
-        self.export_module = ExportNotes(self, controller, theme_manager, database)
+        # Initialize modules
+        self.table_manager = TableManagerFactory.create_table_manager("invoices", database)
+        self.add_manager = InvoiceAddManager(database, theme_manager)
+        self.edit_manager = InvoiceEditManager(database, theme_manager)
+        self.delete_module = InvoiceDelete(self, controller, theme_manager, database)
+        self.export_module = InvoiceExport(self, controller, theme_manager, database)
         self.backup_module = ConfigBackup(self, controller, theme_manager, database)
 
-        # Estado da aplicação
-        self.editando_id = None
-        self.modo_edicao = False
+        # Application state
+        self.editing_id = None
+        self.edit_mode = False
         self.variables = self.add_manager.initialize_variables()  # dict of StringVar
         self.buttons = {}
 
-        # Variável e widget da barra de pesquisa (implementação local para evitar problemas de foco)
+        # Search bar variable and widget (local implementation to avoid focus issues)
         self.search_var = tk.StringVar()
-        self.search_entry = None  # criado em create_search_bar
+        self.search_entry = None  # created in create_search_bar
         self.btn_search_clear = None
+        
+        # Customer combobox (functionality absorbed from SearchManager)
+        self.customer_combobox = None
 
         self.setup_ui()
         self._attach_traces()
         self.refresh_data()
 
     def setup_ui(self):
-        """Configura toda a interface do usuário usando grid."""
-        # Container principal
+        """Sets up the entire user interface using grid."""
+        # Main container
         self.main_container = ttk.Frame(self)
         self.main_container.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
 
-        # Configurar grid da MainMenu
+        # Configure MainMenu grid
         self.rowconfigure(0, weight=1)
         self.columnconfigure(0, weight=1)
 
-        # Configurar grid do main_container
+        # Configure main_container grid
         self.main_container.columnconfigure(0, weight=1)
-        self.main_container.rowconfigure(0, weight=0)  # título
-        self.main_container.rowconfigure(1, weight=0)  # busca
-        self.main_container.rowconfigure(2, weight=1)  # tabela (expande)
-        self.main_container.rowconfigure(3, weight=0)  # última nota fiscal
+        self.main_container.rowconfigure(0, weight=0)  # title
+        self.main_container.rowconfigure(1, weight=0)  # search
+        self.main_container.rowconfigure(2, weight=1)  # table (expands)
+        self.main_container.rowconfigure(3, weight=0)  # last invoice
         self.main_container.rowconfigure(4, weight=0)  # combobox
-        self.main_container.rowconfigure(5, weight=0)  # formulário
-        self.main_container.rowconfigure(6, weight=0)  # botões
+        self.main_container.rowconfigure(5, weight=0)  # form
+        self.main_container.rowconfigure(6, weight=0)  # buttons
 
         self.create_title()
-        self.create_search_bar()  # implementação local
+        self.create_search_bar()  # local implementation
         self.create_table()
-        self.create_ultima_nota_frame()  # abaixo da tabela
-        self.create_cliente_combobox()
+        self.create_last_invoice_frame()  # below table
+        self.create_customer_combobox()  # functionality absorbed from SearchManager
         self.create_form()
         self.create_buttons()
 
     def _attach_traces(self):
-        """Anexa traces para manter estado dos botões de 'limpar' atualizados."""
-        # Trace para botão limpar pesquisa
+        """Attaches traces to keep 'clear' button states updated."""
+        # Trace for search clear button
         self.search_var.trace_add("write", lambda *a: self.update_search_clear_state())
 
-        # Traces para os campos do formulário -> habilita/desabilita botão "Limpar Campos"
-        # usamos v=var no lambda para evitar late binding
+        # Traces for form fields -> enable/disable "Clear Fields" button
+        # use v=var in lambda to avoid late binding
         for name, var in self.variables.items():
-            var.trace_add("write", lambda *a, v=var: self.update_limpar_campos_button_state())
-
+            var.trace_add("write", lambda *a, v=var: self.update_clear_fields_button_state())
 
     def create_title(self):
-        """Cria o título da página."""
+        """Creates the page title."""
         title_label = ttk.Label(
             self.main_container,
             text="Gerenciador de Notas Fiscais",
@@ -113,15 +112,13 @@ class MainMenu(ttk.Frame):
         )
         title_label.grid(row=0, column=0, pady=(0, 20), sticky="ew")
 
-        # garante expansão para centralizar
+        # Ensure expansion for centering
         self.main_container.grid_columnconfigure(0, weight=1)
-
-
 
     def create_search_bar(self):
         """
-        Cria a barra de pesquisa localmente.
-        Motivo: evitar perda de foco do Entry causada por atualizações de widgets externas.
+        Creates the search bar locally.
+        Reason: avoid Entry focus loss caused by external widget updates.
         """
         search_frame = ttk.Frame(self.main_container)
         search_frame.grid(row=1, column=0, sticky="ew", pady=(0, 10))
@@ -130,20 +127,20 @@ class MainMenu(ttk.Frame):
         lbl = ttk.Label(search_frame, text="Pesquisar nota:")
         lbl.grid(row=0, column=0, sticky="w", padx=(0, 10))
 
-        # Entry de pesquisa local (usa self.search_var)
+        # Local search entry (uses self.search_var)
         self.search_entry = ttk.Entry(
             search_frame, textvariable=self.search_var, width=50
         )
         self.search_entry.grid(row=0, column=1, sticky="ew")
-        # KeyRelease para atualizar a tabela enquanto digita
+        # KeyRelease to update table while typing
         self.search_entry.bind("<KeyRelease>", self.on_search)
-        # Garantir foco inicial na entry
+        # Ensure initial focus on entry
         try:
             self.search_entry.focus_set()
         except Exception:
             pass
 
-        # Botão Limpar: apaga toda a string e restaura a tabela
+        # Clear button: erases entire string and restores table
         btn_clear = ttk.Button(
             search_frame,
             text="Limpar",
@@ -153,52 +150,115 @@ class MainMenu(ttk.Frame):
         )
         btn_clear.grid(row=0, column=2, padx=(10, 0))
         self.btn_search_clear = btn_clear
-        # estado inicial: desabilitado (vazio)
+        # initial state: disabled (empty)
         self.btn_search_clear.config(state=DISABLED)
 
     def create_table(self):
-        """Cria a tabela de notas."""
+        """Creates the invoices table."""
         table_frame = self.table_manager.create_table(self.main_container)
         table_frame.grid(row=2, column=0, sticky="nsew", pady=(0, 10))
         self.table_manager.bind_selection_event(self.on_table_select)
 
-    def create_ultima_nota_frame(self):
-        """Cria o frame para exibir a última nota fiscal adicionada."""
-        self.ultima_nota_frame = ttk.LabelFrame(
+    def create_last_invoice_frame(self):
+        """Creates the frame to display the last added invoice."""
+        self.last_invoice_frame = ttk.LabelFrame(
             self.main_container, text="Última Nota Fiscal Adicionada", bootstyle=WARNING
         )
-        self.ultima_nota_frame.grid(row=3, column=0, sticky="ew", pady=(10, 10))
-        self.ultima_nota_frame.columnconfigure(0, weight=1)
+        self.last_invoice_frame.grid(row=3, column=0, sticky="ew", pady=(10, 10))
+        self.last_invoice_frame.columnconfigure(0, weight=1)
 
-        inner_frame = ttk.Frame(self.ultima_nota_frame, padding=10)
+        inner_frame = ttk.Frame(self.last_invoice_frame, padding=10)
         inner_frame.grid(row=0, column=0, sticky="ew")
 
         for i in range(4):
             inner_frame.columnconfigure(i, weight=1)
 
-        self.ultima_nota_labels = {
-            "data": ttk.Label(inner_frame, text="Data: -", font=("Helvetica", 9)),
-            "numero": ttk.Label(inner_frame, text="Número: -", font=("Helvetica", 9)),
-            "cliente": ttk.Label(inner_frame, text="Cliente: -", font=("Helvetica", 9)),
-            "valor": ttk.Label(inner_frame, text="Valor: -", font=("Helvetica", 9)),
+        self.last_invoice_labels = {
+            "date": ttk.Label(inner_frame, text="Data: -", font=("Helvetica", 9)),
+            "number": ttk.Label(inner_frame, text="Número: -", font=("Helvetica", 9)),
+            "customer": ttk.Label(inner_frame, text="Cliente: -", font=("Helvetica", 9)),
+            "value": ttk.Label(inner_frame, text="Valor: -", font=("Helvetica", 9)),
         }
 
-        self.ultima_nota_labels["data"].grid(row=0, column=0, sticky="w", padx=5)
-        self.ultima_nota_labels["numero"].grid(row=0, column=1, sticky="w", padx=5)
-        self.ultima_nota_labels["cliente"].grid(row=0, column=2, sticky="w", padx=5)
-        self.ultima_nota_labels["valor"].grid(row=0, column=3, sticky="w", padx=5)
+        self.last_invoice_labels["date"].grid(row=0, column=0, sticky="w", padx=5)
+        self.last_invoice_labels["number"].grid(row=0, column=1, sticky="w", padx=5)
+        self.last_invoice_labels["customer"].grid(row=0, column=2, sticky="w", padx=5)
+        self.last_invoice_labels["value"].grid(row=0, column=3, sticky="w", padx=5)
 
-    def create_cliente_combobox(self):
-        """Cria a combobox de clientes."""
-        cliente_frame = self.search_manager.create_cliente_combobox(
-            self.main_container,
-            self.on_cliente_selecionado,
-            self.limpar_selecao_cliente,
+    def create_customer_combobox(self):
+        """Creates the customer selection combobox (functionality absorbed from SearchManager)."""
+        customer_frame = ttk.LabelFrame(
+            self.main_container, text="Seleção Rápida de Cliente", bootstyle=SUCCESS
         )
-        cliente_frame.grid(row=4, column=0, sticky="ew", pady=(0, 10))
+        customer_frame.columnconfigure(1, weight=1)
+
+        ttk.Label(customer_frame, text="Cliente Cadastrado:").grid(
+            row=0, column=0, sticky="w", padx=(10, 5), pady=10
+        )
+
+        self.customer_combobox = ttk.Combobox(
+            customer_frame, state="readonly", postcommand=self.load_customers
+        )
+        self.customer_combobox.grid(row=0, column=1, sticky="ew", padx=5, pady=10)
+        self.customer_combobox.bind("<<ComboboxSelected>>", self.on_customer_selected)
+
+        btn_clear = ttk.Button(
+            customer_frame,
+            text="Limpar Seleção",
+            command=self.clear_customer_selection,
+            bootstyle=SECONDARY,
+            width=15,
+        )
+        btn_clear.grid(row=0, column=2, padx=(5, 10), pady=10)
+
+        self.load_customers()
+        customer_frame.grid(row=4, column=0, sticky="ew", pady=(0, 10))
+
+    def load_customers(self):
+        """Loads the customer list into the combobox (functionality absorbed from SearchManager)."""
+        try:
+            customers = self.database.get_all_customers()
+            customer_names = [customer[1] for customer in customers]
+            self.customer_combobox["values"] = customer_names
+        except Exception as e:
+            print(f"Error loading customers: {e}")
+
+    def on_customer_selected(self, event):
+        """Fills the fields when a customer is selected (functionality absorbed from SearchManager)."""
+        customer_name = self.customer_combobox.get()
+        if not customer_name:
+            return
+
+        try:
+            customer = self.database.get_customer_by_name(customer_name)
+            if customer:
+                _, name, phone, email, cnpj, address = customer
+                # CORREÇÃO: Usar os nomes corretos das variáveis em inglês
+                self.variables["customer_var"].set(name or "")
+                self.variables["phone_var"].set(phone or "")
+                self.variables["email_var"].set(email or "")
+                self.variables["cnpj_var"].set(cnpj or "")
+                self.variables["address_var"].set(address or "")
+                show_info(self, f"Dados do cliente '{name}' carregados com sucesso!")
+        except Exception as e:
+            show_error(self, f"Erro ao carregar dados do cliente: {e}")
+
+    def clear_customer_selection(self):
+        """Clears the customer selection (functionality absorbed from SearchManager)."""
+        self.customer_combobox.set("")
+        # CORREÇÃO: Usar os nomes corretos das variáveis em inglês
+        for field in [
+            "customer_var",
+            "phone_var",
+            "email_var",
+            "cnpj_var",
+            "address_var",
+        ]:
+            self.variables[field].set("")
+        show_info(self, "Seleção de cliente limpa.")
 
     def create_form(self):
-        """Cria o formulário de notas."""
+        """Creates the invoice form."""
         form_frame = ttk.LabelFrame(
             self.main_container, text="Adicionar/Editar Nota Fiscal", bootstyle=SUCCESS
         )
@@ -213,30 +273,32 @@ class MainMenu(ttk.Frame):
 
         self.create_form_fields(inner_frame)
 
-    def formatar_telefone_wrapper(self, telefone_var, event=None):
-        """Formata o telefone durante a digitação e reposiciona o cursor no fim."""
+    def format_phone_wrapper(self, phone_var, event=None):
+        """Formats phone during typing and ALWAYS repositions cursor at the end."""
         from core import utils
 
-        current = telefone_var.get()
+        current = phone_var.get()
         if current:
-            formatted = utils.formatar_telefone(current)
+            formatted = utils.format_phone(current)
             if current != formatted:
-                telefone_var.set(formatted)
+                phone_var.set(formatted)
+                # SEMPRE move o cursor para o final
                 try:
                     if event and getattr(event, "widget", None):
                         event.widget.after_idle(lambda: event.widget.icursor(tk.END))
                 except Exception:
                     pass
 
-    def formatar_cnpj_wrapper(self, cnpj_var, event=None):
-        """Formata o CNPJ durante a digitação e reposiciona o cursor no fim."""
+    def format_cnpj_wrapper(self, cnpj_var, event=None):
+        """Formats CNPJ during typing and ALWAYS repositions cursor at the end."""
         from core import utils
 
         current = cnpj_var.get()
         if current:
-            formatted = utils.formatar_cnpj(current)
+            formatted = utils.format_cnpj(current)
             if current != formatted:
                 cnpj_var.set(formatted)
+                # SEMPRE move o cursor para o final
                 try:
                     if event and getattr(event, "widget", None):
                         event.widget.after_idle(lambda: event.widget.icursor(tk.END))
@@ -244,8 +306,8 @@ class MainMenu(ttk.Frame):
                     pass
 
     def create_form_fields(self, parent):
-        """Cria os campos do formulário."""
-        # Data Emissão
+        """Creates the form fields."""
+        # Emission Date
         ttk.Label(parent, text="Data Emissão*:").grid(
             row=0, column=0, sticky=E, pady=5, padx=(0, 5)
         )
@@ -260,32 +322,32 @@ class MainMenu(ttk.Frame):
         self.date_entry.bind(
             "<<DateEntrySelected>>",
             lambda e: self.add_manager.on_date_selected(
-                self.date_entry, self.variables["data_var"]
+                self.date_entry, self.variables["date_var"]
             ),
         )
-        self.variables["data_var"].set(datetime.now().strftime("%d/%m/%Y"))
+        self.variables["date_var"].set(datetime.now().strftime("%d/%m/%Y"))
 
-        # Telefone
+        # Phone
         ttk.Label(parent, text="Telefone:").grid(
             row=0, column=2, sticky=E, pady=5, padx=(10, 5)
         )
-        entry_telefone = ttk.Entry(parent, textvariable=self.variables["telefone_var"])
-        entry_telefone.grid(row=0, column=3, sticky=EW, pady=5)
-        entry_telefone.bind(
+        entry_phone = ttk.Entry(parent, textvariable=self.variables["phone_var"])
+        entry_phone.grid(row=0, column=3, sticky=EW, pady=5)
+        entry_phone.bind(
             "<KeyRelease>",
-            lambda e: self.formatar_telefone_wrapper(self.variables["telefone_var"], e),
+            lambda e: self.format_phone_wrapper(self.variables["phone_var"], e),
         )
 
-        # Número
+        # Number
         ttk.Label(parent, text="Número*:").grid(
             row=1, column=0, sticky=E, pady=5, padx=(0, 5)
         )
-        entry_numero = ttk.Entry(parent, textvariable=self.variables["numero_var"])
-        entry_numero.grid(row=1, column=1, sticky=EW, pady=5, padx=(0, 10))
-        entry_numero.bind(
+        entry_number = ttk.Entry(parent, textvariable=self.variables["number_var"])
+        entry_number.grid(row=1, column=1, sticky=EW, pady=5, padx=(0, 10))
+        entry_number.bind(
             "<KeyRelease>",
-            lambda e: self.add_manager.validar_numero_nota_wrapper(
-                self.variables["numero_var"]
+            lambda e: self.add_manager.validate_invoice_number_wrapper(
+                self.variables["number_var"]
             ),
         )
 
@@ -297,17 +359,17 @@ class MainMenu(ttk.Frame):
         entry_email.grid(row=1, column=3, sticky=EW, pady=5)
         entry_email.bind(
             "<FocusOut>",
-            lambda e: self.add_manager.validar_email_wrapper(
+            lambda e: self.add_manager.validate_email_wrapper(
                 self.variables["email_var"], entry_email
             ),
         )
 
-        # Cliente
+        # Customer
         ttk.Label(parent, text="Cliente*:").grid(
             row=2, column=0, sticky=E, pady=5, padx=(0, 5)
         )
-        entry_cliente = ttk.Entry(parent, textvariable=self.variables["cliente_var"])
-        entry_cliente.grid(row=2, column=1, sticky=EW, pady=5, padx=(0, 10))
+        entry_customer = ttk.Entry(parent, textvariable=self.variables["customer_var"])
+        entry_customer.grid(row=2, column=1, sticky=EW, pady=5, padx=(0, 10))
 
         # CNPJ
         ttk.Label(parent, text="CNPJ:").grid(
@@ -317,42 +379,42 @@ class MainMenu(ttk.Frame):
         entry_cnpj.grid(row=2, column=3, sticky=EW, pady=5)
         entry_cnpj.bind(
             "<KeyRelease>",
-            lambda e: self.formatar_cnpj_wrapper(self.variables["cnpj_var"], e),
+            lambda e: self.format_cnpj_wrapper(self.variables["cnpj_var"], e),
         )
 
-        # Valor
+        # Value
         ttk.Label(parent, text="Valor (R$)*:").grid(
             row=3, column=0, sticky=E, pady=5, padx=(0, 5)
         )
-        entry_valor = ttk.Entry(parent, textvariable=self.variables["valor_var"])
-        entry_valor.grid(row=3, column=1, sticky=EW, pady=5, padx=(0, 10))
-        entry_valor.bind(
+        entry_value = ttk.Entry(parent, textvariable=self.variables["value_var"])
+        entry_value.grid(row=3, column=1, sticky=EW, pady=5, padx=(0, 10))
+        entry_value.bind(
             "<KeyRelease>",
-            lambda e: self.add_manager.formatar_valor_wrapper(
-                self.variables["valor_var"]
+            lambda e: self.add_manager.format_value_wrapper(  # Deve usar o do add_manager
+                self.variables["value_var"], e  # Passar o evento também
             ),
         )
-        entry_valor.bind(
-            "<FocusOut>",
-            lambda e: self.add_manager.aplicar_formatacao_valor_wrapper(
-                self.variables["valor_var"]
+        entry_value.bind(
+            "<KeyRelease>",
+            lambda e: self.format_value_wrapper(  # Usar o wrapper local
+                self.variables["value_var"], e
             ),
         )
 
-        # Endereço
+        # Address
         ttk.Label(parent, text="Endereço:").grid(
             row=3, column=2, sticky=E, pady=5, padx=(10, 5)
         )
-        entry_endereco = ttk.Entry(parent, textvariable=self.variables["endereco_var"])
-        entry_endereco.grid(row=3, column=3, sticky=EW, pady=5)
+        entry_address = ttk.Entry(parent, textvariable=self.variables["address_var"])
+        entry_address.grid(row=3, column=3, sticky=EW, pady=5)
 
     def create_buttons(self):
-        """Cria os botões de ação."""
+        """Creates the action buttons."""
         button_frame = ttk.Frame(self.main_container)
         button_frame.grid(row=6, column=0, sticky="ew", pady=20)
         button_frame.columnconfigure(0, weight=1)
 
-        # Linha 1
+        # Line 1
         line1 = ttk.Frame(button_frame)
         line1.grid(row=0, column=0, sticky="nsew", pady=(0, 10))
         line1.columnconfigure(0, weight=1)
@@ -364,13 +426,13 @@ class MainMenu(ttk.Frame):
             (
                 "Salvar Nota",
                 SUCCESS,
-                self.salvar_nota,
+                self.save_invoice,
                 "Salvar nota fiscal no sistema.",
             ),
             (
                 "Editar Nota",
                 WARNING,
-                self.editar_nota,
+                self.edit_invoice,
                 "Carregar nota selecionada para edição.",
             ),
             (
@@ -388,7 +450,7 @@ class MainMenu(ttk.Frame):
             (
                 "Limpar Campos",
                 "OUTLINE-WARNING",
-                self.limpar_campos,
+                self.clear_fields,
                 "Limpar campos do formulário.",
             ),
         ]
@@ -404,22 +466,22 @@ class MainMenu(ttk.Frame):
             else:
                 create_info_tooltip(btn, tooltip)
 
-            # Armazenar referências aos botões importantes
+            # Store references to important buttons
             if text == "Salvar Nota":
-                self.buttons["btn_salvar"] = btn
+                self.buttons["btn_save"] = btn
             elif text == "Editar Nota":
-                self.buttons["btn_editar"] = btn
+                self.buttons["btn_edit"] = btn
             elif text == "Excluir":
-                self.buttons["btn_excluir"] = btn
+                self.buttons["btn_delete"] = btn
             elif text == "Exportar":
-                self.buttons["btn_exportar"] = btn
+                self.buttons["btn_export"] = btn
             elif text == "Limpar Campos":
-                # guardamos referência para controlar estado
-                self.buttons["btn_limpar_campos"] = btn
-                # iniciar desabilitado (vazio)
+                # store reference to control state
+                self.buttons["btn_clear_fields"] = btn
+                # start disabled (empty)
                 btn.config(state=DISABLED)
 
-        # Linha 2
+        # Line 2
         line2 = ttk.Frame(button_frame)
         line2.grid(row=1, column=0, sticky="nsew")
         line2.columnconfigure(0, weight=1)
@@ -431,7 +493,7 @@ class MainMenu(ttk.Frame):
             (
                 "Cadastros",
                 INFO,
-                lambda: self.controller.handle_event(EventKeys.CADASTRO_CLIENTES),
+                lambda: self.controller.handle_event(EventKeys.CUSTOMER_REGISTRATION),
                 "Gerenciar cadastro de clientes.",
             ),
             (
@@ -450,7 +512,7 @@ class MainMenu(ttk.Frame):
             (
                 "Sobre",
                 "INFO-OUTLINE",
-                self.mostrar_sobre,
+                self.show_about,
                 "Sobre este projeto.",
             ),
             (
@@ -469,29 +531,29 @@ class MainMenu(ttk.Frame):
             create_info_tooltip(btn, tooltip)
 
     def update_search_clear_state(self):
-        """Ativa/desativa o botão 'Limpar' da pesquisa baseado no conteúdo."""
+        """Enables/disables the search 'Clear' button based on content."""
         if self.btn_search_clear is None:
             return
-        termo = (self.search_var.get() or "").strip()
-        state = NORMAL if termo else DISABLED
+        term = (self.search_var.get() or "").strip()
+        state = NORMAL if term else DISABLED
         try:
             self.btn_search_clear.config(state=state)
         except Exception:
             pass
 
-    def update_limpar_campos_button_state(self):
-        """Ativa/desativa o botão 'Limpar Campos' se houver qualquer texto em campos relevantes do formulário."""
-        btn = self.buttons.get("btn_limpar_campos")
+    def update_clear_fields_button_state(self):
+        """Enables/disables the 'Clear Fields' button if there is any text in relevant form fields."""
+        btn = self.buttons.get("btn_clear_fields")
         if btn is None:
             return
 
-        # Ignorar a data, pois data_var costuma ser preenchida automaticamente
-        campos_a_verificar = [
-            k for k in self.variables.keys() if k != "data_var"
+        # Ignore date, as date_var is usually automatically filled
+        fields_to_check = [
+            k for k in self.variables.keys() if k != "date_var"  # CORREÇÃO: date_var
         ]
 
         any_filled = any(
-            (self.variables[k].get() or "").strip() for k in campos_a_verificar
+            (self.variables[k].get() or "").strip() for k in fields_to_check
         )
 
         state = NORMAL if any_filled else DISABLED
@@ -500,44 +562,43 @@ class MainMenu(ttk.Frame):
         except Exception:
             pass    
 
-    def atualizar_ultima_nota(self):
-        """Atualiza o frame com os dados da última nota fiscal."""
-        ultima_nota = self.database.get_ultima_nota()
+    def update_last_invoice(self):
+        """Updates the frame with the last invoice data."""
+        last_invoice = self.database.get_last_invoice()
 
-        if ultima_nota:
-            data_emissao, numero, cliente, valor = ultima_nota
-            from core import utils  # Importar aqui para evitar circular imports
+        if last_invoice:
+            emission_date, number, customer, value = last_invoice
+            from core import utils  # Import here to avoid circular imports
 
-            self.ultima_nota_labels["data"].config(text=f"Data: {data_emissao}")
-            self.ultima_nota_labels["numero"].config(text=f"Número: {numero}")
-            self.ultima_nota_labels["cliente"].config(text=f"Cliente: {cliente}")
-            self.ultima_nota_labels["valor"].config(
-                text=f"Valor: {utils.formatar_moeda(valor)}"
+            self.last_invoice_labels["date"].config(text=f"Data: {emission_date}")
+            self.last_invoice_labels["number"].config(text=f"Número: {number}")
+            self.last_invoice_labels["customer"].config(text=f"Cliente: {customer}")
+            self.last_invoice_labels["value"].config(
+                text=f"Valor: {utils.format_currency(value)}"
             )
         else:
-            for label in self.ultima_nota_labels.values():
+            for label in self.last_invoice_labels.values():
                 label.config(text="-")
 
     def on_search(self, event=None):
-        """Handler para pesquisa.
-        Usa self.search_var (implementação local) para evitar perda de foco
-        e garantir comportamento consistente do botão 'Limpar'.
+        """Search handler.
+        Uses self.search_var (local implementation) to avoid focus loss
+        and ensure consistent 'Clear' button behavior.
         """
-        termo = (self.search_var.get() or "").strip()
+        term = (self.search_var.get() or "").strip()
 
-        # Usar o filtro do SearchManager (se disponível) para consistência
+        # Local filtering (functionality absorbed from SearchManager)
         try:
-            if termo:
-                resultado = self.search_manager.filter_notes(
-                    self.table_manager.all_data, termo
-                )
-                self.table_manager.filtered_data = resultado
+            if term:
+                # Try to use database method first
+                result = self.database.search_notes_by_term(term)
+                self.table_manager.filtered_data = result
             else:
                 self.table_manager.filtered_data = self.table_manager.all_data.copy()
         except Exception:
-            # fallback simples
-            if termo:
-                lower = termo.lower()
+            # Fallback to local filtering
+            if term:
+                lower = term.lower()
                 filtered = [
                     row
                     for row in self.table_manager.all_data
@@ -547,17 +608,17 @@ class MainMenu(ttk.Frame):
             else:
                 self.table_manager.filtered_data = self.table_manager.all_data.copy()
 
-        # Atualiza a tabela com os dados filtrados
+        # Update table with filtered data
         self.table_manager.update_table_data(self.table_manager.filtered_data)
 
-        # Limpar seleção da tabela para evitar efeitos colaterais
+        # Clear table selection to avoid side effects
         try:
             self.table_manager.clear_selection()
             self.table_manager.selected_ids = []
         except Exception:
             pass
 
-        # Restaurar foco/cursor para a search_entry após atualização (evita "sair" do campo)
+        # Restore focus/cursor to search_entry after update (avoids "leaving" the field)
         if self.search_entry:
             try:
                 self.search_entry.after_idle(
@@ -569,29 +630,21 @@ class MainMenu(ttk.Frame):
             except Exception:
                 pass
 
-        # atualizar estado do botão limpar pesquisa (trace também cuida, mas asseguramos aqui)
+        # update search clear button state (trace also handles it, but we ensure here)
         self.update_search_clear_state()
 
     def on_table_select(self, event=None):
-        """Handler para seleção na tabela."""
+        """Table selection handler."""
         self.table_manager.selected_ids = self.table_manager.get_selected_ids()
-        self.atualizar_estado_botoes()
-
-    def on_cliente_selecionado(self, event=None):
-        """Handler para seleção de cliente."""
-        self.search_manager.on_cliente_selecionado(event, self.variables)
-
-    def limpar_selecao_cliente(self):
-        """Limpa a seleção do cliente."""
-        self.search_manager.limpar_selecao_cliente(self.variables)
+        self.update_button_states()
 
     def clear_search(self):
-        """Limpa a pesquisa: apaga o entry, restaura a tabela e foca o campo."""
+        """Clears the search: erases the entry, restores the table and focuses the field."""
         if self.search_var is not None:
             self.search_var.set("")
-        # chama on_search para atualizar a tabela (restaurar todos os dados)
+        # call on_search to update table (restore all data)
         self.on_search()
-        # garantir foco no entry
+        # ensure focus on entry
         if self.search_entry:
             try:
                 self.search_entry.after_idle(
@@ -602,91 +655,92 @@ class MainMenu(ttk.Frame):
                 )
             except Exception:
                 pass
-        # estado do botão será atualizado via trace
+        # button state will be updated via trace
 
-    def atualizar_estado_botoes(self):
-        """Atualiza o estado dos botões baseado na seleção."""
+    def update_button_states(self):
+        """Updates button states based on selection."""
         has_selection = len(getattr(self.table_manager, "selected_ids", [])) > 0
         single_selection = len(getattr(self.table_manager, "selected_ids", [])) == 1
 
-        # Atualizar estados dos botões (alguns podem não existir até create_buttons)
+        # Update button states (some may not exist until create_buttons)
         try:
-            self.buttons["btn_excluir"].config(
+            self.buttons["btn_delete"].config(
                 state=NORMAL if has_selection else DISABLED
             )
         except Exception:
             pass
         try:
-            self.buttons["btn_exportar"].config(
+            self.buttons["btn_export"].config(
                 state=NORMAL if has_selection else DISABLED
             )
         except Exception:
             pass
         try:
-            self.buttons["btn_editar"].config(
+            self.buttons["btn_edit"].config(
                 state=NORMAL if single_selection else DISABLED
             )
         except Exception:
             pass
 
-        # Configurar botão de edição/cancelamento
+        # Configure edit/cancel button
         try:
-            if self.modo_edicao:
-                self.buttons["btn_editar"].config(
+            if self.edit_mode:
+                self.buttons["btn_edit"].config(
                     text="Cancelar Edição",
                     bootstyle=DANGER,
-                    command=self.cancelar_edicao,
+                    command=self.cancel_edit,
                 )
             else:
-                self.buttons["btn_editar"].config(
-                    text="Editar Nota", bootstyle=WARNING, command=self.editar_nota
+                self.buttons["btn_edit"].config(
+                    text="Editar Nota", bootstyle=WARNING, command=self.edit_invoice
                 )
         except Exception:
             pass
 
-    def salvar_nota(self):
-        """Salva uma nova nota ou atualiza uma existente."""
+    def save_invoice(self):
+        """Saves a new invoice or updates an existing one."""
+        # CORREÇÃO: Usar os nomes corretos das variáveis em inglês
         data = {
-            "data": self.variables["data_var"].get().strip(),
-            "numero": self.variables["numero_var"].get().strip(),
-            "cliente": self.variables["cliente_var"].get().strip(),
-            "valor": self.variables["valor_var"].get().strip(),
-            "telefone": self.variables["telefone_var"].get().strip(),
+            "date": self.variables["date_var"].get().strip(),
+            "number": self.variables["number_var"].get().strip(),
+            "customer": self.variables["customer_var"].get().strip(),
+            "value": self.variables["value_var"].get().strip(),
+            "phone": self.variables["phone_var"].get().strip(),
             "email": self.variables["email_var"].get().strip(),
             "cnpj": self.variables["cnpj_var"].get().strip(),
-            "endereco": self.variables["endereco_var"].get().strip(),
+            "address": self.variables["address_var"].get().strip(),
         }
 
-        valido, mensagem = self.add_manager.validar_formulario(
-            data=data["data"],
-            numero=data["numero"],
-            cliente=data["cliente"],
-            valor=data["valor"],
-            telefone=data["telefone"],
+        valid, message = self.add_manager.validate_form(
+            date=data["date"],
+            number=data["number"],
+            customer=data["customer"],
+            value=data["value"],
+            phone=data["phone"],
             email=data["email"],
             cnpj=data["cnpj"],
-            endereco=data["endereco"],
+            address=data["address"],
         )
 
-        if not valido:
-            show_error(self, mensagem)
+        if not valid:
+            show_error(self, message)
             return
 
         try:
-            if self.modo_edicao and self.editando_id:
-                success = self.edit_manager.atualizar_nota_existente(
-                    self, self.editando_id, **data
+            if self.edit_mode and self.editing_id:
+                success = self.edit_manager.update_existing_invoice(
+                    self, self.editing_id, **data
                 )
                 if success:
-                    self.modo_edicao = False
-                    self.editando_id = None
-                    self.buttons["btn_salvar"].config(
+                    self.edit_mode = False
+                    self.editing_id = None
+                    self.buttons["btn_save"].config(
                         text="Salvar Nota", bootstyle=SUCCESS
                     )
             else:
-                success = self.add_manager.salvar_nova_nota(self, **data)
+                success = self.add_manager.save_new_invoice(self, **data)
                 if success:
-                    self.atualizar_ultima_nota()
+                    self.update_last_invoice()
 
             if success:
                 self.refresh_data()
@@ -694,46 +748,46 @@ class MainMenu(ttk.Frame):
         except Exception as e:
             show_error(self, f"Erro ao salvar nota: {str(e)}")
 
-    def editar_nota(self):
-        """Carrega uma nota para edição."""
+    def edit_invoice(self):
+        """Loads an invoice for editing."""
         if len(getattr(self.table_manager, "selected_ids", [])) != 1:
             show_warning(self, "Selecione exatamente uma nota para editar.")
             return
 
-        nota_id = self.table_manager.selected_ids[0]
-        success = self.edit_manager.carregar_nota_para_edicao(
-            self, nota_id, self.date_entry, self.variables, self.buttons["btn_salvar"]
+        invoice_id = self.table_manager.selected_ids[0]
+        success = self.edit_manager.load_invoice_for_editing(
+            self, invoice_id, self.date_entry, self.variables, self.buttons["btn_save"]
         )
 
         if success:
-            self.modo_edicao = True
-            self.editando_id = nota_id
-            self.atualizar_estado_botoes()
+            self.edit_mode = True
+            self.editing_id = invoice_id
+            self.update_button_states()
 
-    def cancelar_edicao(self):
-        """Cancela o modo de edição."""
-        self.edit_manager.cancelar_edicao(
-            self, self.date_entry, self.variables, self.buttons["btn_salvar"]
+    def cancel_edit(self):
+        """Cancels edit mode."""
+        self.edit_manager.cancel_edit(
+            self, self.date_entry, self.variables, self.buttons["btn_save"]
         )
-        self.modo_edicao = False
-        self.editando_id = None
-        self.atualizar_estado_botoes()
+        self.edit_mode = False
+        self.editing_id = None
+        self.update_button_states()
 
-    def limpar_campos(self):
-        """Limpa os campos do formulário."""
-        self.add_manager.limpar_campos(self.date_entry, self.variables)
-        self.modo_edicao = False
-        self.editando_id = None
+    def clear_fields(self):
+        """Clears the form fields."""
+        self.add_manager.clear_fields(self.date_entry, self.variables)
+        self.edit_mode = False
+        self.editing_id = None
         try:
-            self.buttons["btn_salvar"].config(text="Salvar Nota", bootstyle=SUCCESS)
+            self.buttons["btn_save"].config(text="Salvar Nota", bootstyle=SUCCESS)
         except Exception:
             pass
-        # estado do botão limpar campos será atualizado pela trace
+        # clear fields button state will be updated by trace
 
     def handle_delete_notes(self):
-        """Handler para exclusão de notas."""
+        """Handler for note deletion."""
         selected_ids = getattr(self.table_manager, "selected_ids", [])
-        total_notes = self.database.get_total_notas()
+        total_notes = self.database.get_total_invoices()
 
         if total_notes == 0:
             show_error(self, "Nenhuma nota encontrada no sistema!")
@@ -747,9 +801,9 @@ class MainMenu(ttk.Frame):
         self.refresh_data()
 
     def handle_export_notes(self):
-        """Handler para exportação de notas."""
+        """Handler for note export."""
         selected_ids = getattr(self.table_manager, "selected_ids", [])
-        total_notes = self.database.get_total_notas()
+        total_notes = self.database.get_total_invoices()
 
         if total_notes == 0:
             show_error(self, "Nenhuma nota encontrada no sistema!")
@@ -762,12 +816,12 @@ class MainMenu(ttk.Frame):
         self.export_module.handle_export(selected_ids)
 
     def handle_backup(self):
-        """Handler para backup."""
+        """Handler for backup."""
         self.backup_module.handle_backup()
 
     def refresh_data(self):
-        """Atualiza os dados da view."""
-        self.table_manager.all_data = self.database.get_all_notas()
+        """Refreshes the view data."""
+        self.table_manager.all_data = self.database.get_all_invoices()
         self.table_manager.filtered_data = self.table_manager.all_data.copy()
         self.table_manager.update_table_data(self.table_manager.filtered_data)
         try:
@@ -775,19 +829,21 @@ class MainMenu(ttk.Frame):
         except Exception:
             pass
         self.table_manager.selected_ids = []
-        self.limpar_campos()
-        self.atualizar_estado_botoes()
-        self.atualizar_ultima_nota()
-        # atualizar estados relacionados a campos e pesquisa
-        self.update_limpar_campos_button_state()
+        self.clear_fields()
+        self.update_button_states()
+        self.update_last_invoice()
+        # Reload customers in combobox
+        self.load_customers()
+        # update states related to fields and search
+        self.update_clear_fields_button_state()
         self.update_search_clear_state()
 
-    def mostrar_sobre(self):
-        """Exibe informações sobre o projeto."""
+    def show_about(self):
+        """Shows information about the project."""
         from ..utils.popups import ask_yes_no
         import webbrowser
 
-        resposta = ask_yes_no(
+        response = ask_yes_no(
             self,
             "Este é um projeto de código aberto desenvolvido para gerenciamento de notas fiscais.\n\n"
             "Gostaria de visitar o repositório oficial no GitHub para obter mais informações,\n"
@@ -795,5 +851,21 @@ class MainMenu(ttk.Frame):
             "Sobre o Projeto"
         )
 
-        if resposta == "Sim":
+        if response == "Sim":
             webbrowser.open("https://github.com/diegons490/gerenciador-de-notas-fiscais")
+
+    def format_value_wrapper(self, value_var, event=None):
+        """Local wrapper for value formatting that ALWAYS repositions cursor at the end."""
+        from core import utils
+        
+        current = value_var.get()
+        if current:
+            formatted = utils.format_typing_value(current)
+            if current != formatted:
+                value_var.set(formatted)
+                # SEMPRE move o cursor para o final
+                try:
+                    if event and getattr(event, "widget", None):
+                        event.widget.after_idle(lambda: event.widget.icursor(tk.END))
+                except Exception:
+                    pass

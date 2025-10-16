@@ -1,30 +1,32 @@
-# gui/keys.py (atualizado)
-
+# gui/keys.py
+"""
+Event keys for application navigation and control.
+"""
 
 class EventKeys:
-    """Chaves para eventos de navegação e controle da aplicação."""
+    """Keys for application navigation and control events."""
 
-    # Navegação principal
+    # Main navigation
     EXIT = "exit"
     BACK = "back"
     HOME = "home"
 
-    # Operações com notas
-    ADD_NOTE = "add_note"
-    EDIT_NOTE = "edit_note"
-    DELETE_NOTE = "delete_note"
-    EXPORT_NOTES = "export_notes"
+    # Invoice operations
+    ADD_INVOICE = "add_invoice"
+    EDIT_INVOICE = "edit_invoice"
+    DELETE_INVOICE = "delete_invoice"
+    EXPORT_INVOICES = "export_invoices"
 
-    # Operações com clientes
-    CADASTRO_CLIENTES = "cadastro_clientes"
+    # Customer operations
+    CUSTOMER_REGISTRATION = "customer_registration"
 
-    # Funcionalidades do sistema
+    # System functionalities
     REPORT = "report"
     BACKUPS = "backups"
     THEME = "theme"
     CONFIG = "config"
 
-    # Controle de dados
+    # Data control
     DATA_CHANGED = "data_changed"
     RELOAD = "reload"
     REFRESH = "refresh"

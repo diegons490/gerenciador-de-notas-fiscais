@@ -1,7 +1,7 @@
-# main.py (corrigido)
+# main.py
 """
-Ponto de entrada principal do aplicativo de gerenciamento de notas fiscais.
-Inicializa todos os componentes e inicia a interface gráfica com ttkbootstrap.
+Main entry point for the invoice management application.
+Initializes all components and starts the graphical interface with ttkbootstrap.
 """
 
 import tkinter as tk
@@ -9,41 +9,36 @@ import ttkbootstrap as tb
 from core import ThemeManager, Database
 from gui.app_controller import AppController
 
-
 def main():
-    """Função principal do aplicativo"""
+    """Main application function"""
     try:
-        # Criar a janela principal PRIMEIRO
+        # Create main window FIRST
         root = tb.Window()
         root.title("Gerenciador de Notas Fiscais")
 
-        # Inicializar o ThemeManager com a janela real
+        # Initialize ThemeManager with real window
         theme_manager = ThemeManager(style=root.style)
 
-        # Registrar temas customizados ANTES de qualquer operação
+        # Register custom themes BEFORE any operation
         print("Registrando temas customizados...")
         theme_manager._register_custom_themes()
 
-        # Listar temas disponíveis para debug
-        available_themes = (
-            theme_manager.style.theme_names() if theme_manager.style else []
-        )
+        # List available themes for debug
+        available_themes = theme_manager.style.theme_names() if theme_manager.style else []
         print(f"Temas disponíveis: {available_themes}")
 
-        # Verificar se o tema atual é válido
+        # Verify if current theme is valid
         current_theme = theme_manager.get_available_theme(theme_manager.current_theme)
 
         if theme_manager.current_theme != current_theme:
-            print(
-                f"Tema '{theme_manager.current_theme}' não disponível. Usando '{current_theme}'."
-            )
+            print(f"Tema '{theme_manager.current_theme}' não disponível. Usando '{current_theme}'.")
             theme_manager.current_theme = current_theme
             theme_manager.config["theme"] = current_theme
             theme_manager.save_config()
 
         print(f"Tema a ser aplicado: {current_theme}")
 
-        # Aplicar o tema ANTES de restaurar o estado da janela
+        # Apply theme BEFORE restoring window state
         success = theme_manager.apply_theme(current_theme, root)
 
         if not success:
@@ -51,35 +46,33 @@ def main():
             fallback_theme = theme_manager.get_available_theme("darkly")
             theme_manager.apply_theme(fallback_theme, root)
 
-        # Restaurar o estado da janela
+        # Restore window state
         theme_manager.restore_window_state(root)
 
-        # Configurar ícone
+        # Configure icon
         theme_manager.set_window_icon(root)
 
-        # Configurar o protocolo de fechamento para salvar o estado
+        # Configure close protocol to save state
         def on_closing():
             theme_manager.save_window_state(root)
             root.destroy()
 
         root.protocol("WM_DELETE_WINDOW", on_closing)
 
-        # Inicializar o Database
+        # Initialize Database
         database = Database()
 
-        # Inicializar o AppController
+        # Initialize AppController
         app_controller = AppController(root, theme_manager, database)
         app_controller.show_main_menu()
 
-        # Iniciar o loop principal
+        # Start main loop
         root.mainloop()
 
     except Exception as e:
         print(f"Erro ao iniciar aplicação: {e}")
         import traceback
-
         traceback.print_exc()
-
 
 if __name__ == "__main__":
     main()

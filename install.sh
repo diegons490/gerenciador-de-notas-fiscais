@@ -51,9 +51,9 @@ echo ">> Instalando $APP_NAME..."
 # Cria pastas necessárias
 mkdir -p "$INSTALL_DIR" "$BIN_DIR" "$ICON_DIR" "$DESKTOP_DIR"
 
-# Copia toda a estrutura do projeto recursivamente (exceto lixo)
+# Copia toda a estrutura do projeto recursivamente (exceto lixo e .exe)
 echo "Copiando arquivos do aplicativo..."
-rsync -a --exclude="__pycache__" --exclude="*.pyc" --exclude="*.pyo" "$(dirname "$0")/" "$INSTALL_DIR/"
+rsync -a --exclude="__pycache__" --exclude="*.pyc" --exclude="*.pyo" --exclude="*.exe" "$(dirname "$0")/" "$INSTALL_DIR/"
 
 # Garante estrutura de dados
 if [ ! -d "$DATA_DIR" ]; then

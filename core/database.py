@@ -1,7 +1,7 @@
 # core/database.py
 """
-Gerenciamento completo de banco de dados SQLite para notas fiscais e clientes.
-Fornece métodos para CRUD (Create, Read, Update, Delete) de notas e clientes.
+Complete SQLite database management for invoices and customers.
+Provides methods for CRUD (Create, Read, Update, Delete) of invoices and customers.
 """
 
 import os
@@ -9,644 +9,565 @@ import sqlite3
 from pathlib import Path
 from typing import List, Tuple, Optional
 
-
 class Database:
     def __init__(self):
         """
-        Inicializa a conexão com o banco de dados e cria as tabelas se não existirem.
+        Initializes database connection and creates tables if they don't exist.
         """
-        # Verificar se a variável de ambiente está definida
+        # Check if environment variable is set
         data_dir = os.environ.get("CONTROLE_NOTAS_DATA_DIR")
         if data_dir:
             self.data_dir = Path(data_dir)
         else:
-            # Modo desenvolvimento - usar diretório atual
+            # Development mode - use current directory
             self.base_dir = Path(__file__).parent.parent
             self.data_dir = self.base_dir / "data"
 
-        # Criar diretório se não existir
+        # Create directory if it doesn't exist
         self.data_dir.mkdir(exist_ok=True)
 
-        self.db_file = self.data_dir / "notas.db"
-        self.client_db_file = self.data_dir / "cadastros.db"
+        self.db_file = self.data_dir / "invoices.db"
+        self.customer_db_file = self.data_dir / "customers.db"
         self.config_path = self.data_dir / "config.json"
 
         self._create_tables()
 
     def _create_tables(self) -> None:
         """
-        Cria as tabelas de notas e clientes se não existirem.
+        Creates invoice and customer tables if they don't exist.
         """
-        # Tabela de notas fiscais
+        # Invoices table
         with sqlite3.connect(self.db_file) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS notas (
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS invoices (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    data_emissao TEXT NOT NULL,
-                    numero TEXT NOT NULL UNIQUE,
-                    cliente TEXT NOT NULL,
-                    valor REAL NOT NULL,
-                    telefone TEXT DEFAULT '',
+                    issue_date TEXT NOT NULL,
+                    number TEXT NOT NULL UNIQUE,
+                    customer TEXT NOT NULL,
+                    value REAL NOT NULL,
+                    phone TEXT DEFAULT '',
                     email TEXT DEFAULT '',
                     cnpj TEXT DEFAULT '',
-                    endereco TEXT DEFAULT '',
-                    data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    address TEXT DEFAULT '',
+                    creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
 
-        # Tabela de clientes (CORRIGIDA - removida constraint UNIQUE do CNPJ)
-        with sqlite3.connect(self.client_db_file) as conn:
+        # Customers table (CORRECTED - removed UNIQUE constraint from CNPJ)
+        with sqlite3.connect(self.customer_db_file) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS clientes (
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS customers (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    nome TEXT NOT NULL UNIQUE,
-                    telefone TEXT DEFAULT '',
+                    name TEXT NOT NULL UNIQUE,
+                    phone TEXT DEFAULT '',
                     email TEXT DEFAULT '',
                     cnpj TEXT DEFAULT '',
-                    endereco TEXT DEFAULT '',
-                    data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    ativo BOOLEAN DEFAULT 1
+                    address TEXT DEFAULT '',
+                    registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    active BOOLEAN DEFAULT 1
                 )
-            """
-            )
+            """)
 
     # ==============================================
-    # MÉTODOS PARA NOTAS FISCAIS
+    # INVOICE METHODS
     # ==============================================
 
-    def insert_nota(
-        self,
-        data: str,
-        numero: str,
-        cliente: str,
-        valor: float,
-        telefone: str = "",
-        email: str = "",
-        cnpj: str = "",
-        endereco: str = "",
-    ) -> bool:
+    def insert_invoice(self, issue_date: str, number: str, customer: str, value: float,
+                      phone: str = "", email: str = "", cnpj: str = "", address: str = "") -> bool:
         """
-        Insere uma nova nota fiscal no banco de dados.
+        Inserts a new invoice into the database.
 
         Args:
-            data: Data de emissão no formato YYYY-MM-DD
-            numero: Número da nota fiscal
-            cliente: Nome do cliente
-            valor: Valor da nota fiscal
-            telefone: Telefone do cliente (opcional)
-            email: Email do cliente (opcional)
-            cnpj: CNPJ do cliente (opcional)
-            endereco: Endereço do cliente (opcional)
+            issue_date: Issue date in YYYY-MM-DD format
+            number: Invoice number
+            customer: Customer name
+            value: Invoice value
+            phone: Customer phone (optional)
+            email: Customer email (optional)
+            cnpj: Customer CNPJ (optional)
+            address: Customer address (optional)
 
         Returns:
-            True se a inserção foi bem-sucedida, False se o número já existe
+            True if insertion successful, False if number already exists
         """
         try:
             with sqlite3.connect(self.db_file) as conn:
                 cursor = conn.cursor()
-                cursor.execute(
-                    """
-                    INSERT INTO notas (
-                        data_emissao, numero, cliente, valor,
-                        telefone, email, cnpj, endereco
+                cursor.execute("""
+                    INSERT INTO invoices (
+                        issue_date, number, customer, value,
+                        phone, email, cnpj, address
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                    (data, numero, cliente, valor, telefone, email, cnpj, endereco),
-                )
+                """, (issue_date, number, customer, value, phone, email, cnpj, address))
             return True
         except sqlite3.IntegrityError:
             return False
 
-    def get_notas_por_periodo(self, inicio: str, fim: str) -> List[Tuple]:
+    def get_invoices_by_period(self, start: str, end: str) -> List[Tuple]:
         """
-        Retorna notas fiscais dentro de um período específico.
+        Returns invoices within a specific period.
 
         Args:
-            inicio: Data inicial no formato YYYY-MM-DD
-            fim: Data final no formato YYYY-MM-DD
+            start: Start date in YYYY-MM-DD format
+            end: End date in YYYY-MM-DD format
 
         Returns:
-            Lista de tuplas com informações das notas
+            List of tuples with invoice information
         """
         with sqlite3.connect(self.db_file) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT
                     id,
-                    strftime('%d/%m/%Y', data_emissao) AS data_br,
-                    numero,
-                    cliente,
-                    valor
-                FROM notas
-                WHERE data_emissao BETWEEN ? AND ?
-                ORDER BY data_emissao DESC
-            """,
-                (inicio, fim),
-            )
+                    strftime('%d/%m/%Y', issue_date) AS br_date,
+                    number,
+                    customer,
+                    value
+                FROM invoices
+                WHERE issue_date BETWEEN ? AND ?
+                ORDER BY issue_date DESC
+            """, (start, end))
             return cursor.fetchall()
 
-    def get_nota_por_id(self, id_nota: int) -> Optional[Tuple]:
+    def get_invoice_by_id(self, invoice_id: int) -> Optional[Tuple]:
         """
-        Retorna uma nota fiscal específica pelo ID.
+        Returns a specific invoice by ID.
 
         Args:
-            id_nota: ID da nota fiscal
+            invoice_id: Invoice ID
 
         Returns:
-            Tupla com os dados da nota ou None se não encontrada
+            Tuple with invoice data or None if not found
         """
         with sqlite3.connect(self.db_file) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT
-                    strftime('%d/%m/%Y', data_emissao) AS data_emissao,
-                    numero,
-                    cliente,
-                    valor,
-                    COALESCE(telefone, ''),
+                    strftime('%d/%m/%Y', issue_date) AS issue_date,
+                    number,
+                    customer,
+                    value,
+                    COALESCE(phone, ''),
                     COALESCE(email, ''),
                     COALESCE(cnpj, ''),
-                    COALESCE(endereco, '')
-                FROM notas
+                    COALESCE(address, '')
+                FROM invoices
                 WHERE id = ?
-            """,
-                (id_nota,),
-            )
+            """, (invoice_id,))
             return cursor.fetchone()
 
-    def get_all_notas(self) -> List[Tuple]:
+    def get_all_invoices(self) -> List[Tuple]:
         """
-        Retorna todas as notas fiscais ordenadas por data.
+        Returns all invoices ordered by date.
 
         Returns:
-            Lista de tuplas com informações das notas
+            List of tuples with invoice information
         """
         with sqlite3.connect(self.db_file) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT
                     id,
-                    strftime('%d/%m/%Y', data_emissao) AS data_br,
-                    numero,
-                    cliente,
-                    valor,
-                    telefone,
+                    strftime('%d/%m/%Y', issue_date) AS br_date,
+                    number,
+                    customer,
+                    value,
+                    phone,
                     email,
                     cnpj,
-                    endereco
-                FROM notas
-                ORDER BY data_emissao DESC
-                """
-            )
+                    address
+                FROM invoices
+                ORDER BY issue_date DESC
+            """)
             return cursor.fetchall()
 
-    def get_total_notas(self) -> int:
+    def get_total_invoices(self) -> int:
         """
-        Retorna o total de notas fiscais no sistema.
+        Returns total number of invoices in the system.
 
         Returns:
-            Número total de notas
+            Total number of invoices
         """
         with sqlite3.connect(self.db_file) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM notas")
+            cursor.execute("SELECT COUNT(*) FROM invoices")
             return cursor.fetchone()[0]
 
-    def delete_nota(self, id_nota: int) -> None:
+    def delete_invoice(self, invoice_id: int) -> None:
         """
-        Exclui uma nota fiscal pelo ID.
+        Deletes an invoice by ID.
 
         Args:
-            id_nota: ID da nota fiscal a ser excluída
+            invoice_id: ID of invoice to delete
         """
         with sqlite3.connect(self.db_file) as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM notas WHERE id = ?", (id_nota,))
+            cursor.execute("DELETE FROM invoices WHERE id = ?", (invoice_id,))
 
-    def delete_all_notas(self) -> None:
+    def delete_all_invoices(self) -> None:
         """
-        Exclui todas as notas fiscais do sistema.
+        Deletes all invoices from the system.
         """
         with sqlite3.connect(self.db_file) as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM notas")
+            cursor.execute("DELETE FROM invoices")
 
-    def get_ultima_nota(self) -> Optional[Tuple]:
+    def get_last_invoice(self) -> Optional[Tuple]:
         """
-        Retorna a última nota fiscal inserida.
+        Returns the last inserted invoice.
 
         Returns:
-            Tupla com os dados da última nota ou None se não houver notas
+            Tuple with last invoice data or None if no invoices
         """
         with sqlite3.connect(self.db_file) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT
-                    strftime('%d/%m/%Y', data_emissao) AS data_emissao,
-                    numero,
-                    cliente,
-                    valor
-                FROM notas
+                    strftime('%d/%m/%Y', issue_date) AS issue_date,
+                    number,
+                    customer,
+                    value
+                FROM invoices
                 ORDER BY id DESC
                 LIMIT 1
-            """
-            )
+            """)
             return cursor.fetchone()
 
-    def get_notas_por_cliente(self, nome_cliente: str) -> List[Tuple]:
+    def get_invoices_by_customer(self, customer_name: str) -> List[Tuple]:
         """
-        Retorna notas fiscais de um cliente específico.
+        Returns invoices from a specific customer.
 
         Args:
-            nome_cliente: Nome do cliente para filtrar
+            customer_name: Customer name to filter
 
         Returns:
-            Lista de tuplas com informações das notas
+            List of tuples with invoice information
         """
         with sqlite3.connect(self.db_file) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT
                     id,
-                    strftime('%d/%m/%Y', data_emissao) AS data_br,
-                    numero,
-                    cliente,
-                    valor
-                FROM notas
-                WHERE cliente LIKE ?
-                ORDER BY data_emissao DESC
-            """,
-                (f"%{nome_cliente}%",),
-            )
+                    strftime('%d/%m/%Y', issue_date) AS br_date,
+                    number,
+                    customer,
+                    value
+                FROM invoices
+                WHERE customer LIKE ?
+                ORDER BY issue_date DESC
+            """, (f"%{customer_name}%",))
             return cursor.fetchall()
 
-    def buscar_notas_por_termo(self, termo: str) -> List[Tuple]:
+    def search_invoices_by_term(self, term: str) -> List[Tuple]:
         """
-        Busca notas fiscais por qualquer campo que contenha o termo.
+        Searches invoices by any field containing the term.
 
         Args:
-            termo: Termo de busca
+            term: Search term
 
         Returns:
-            Lista de tuplas com informações das notas encontradas
+            List of tuples with found invoice information
         """
         with sqlite3.connect(self.db_file) as conn:
             cursor = conn.cursor()
 
-            term_lower = termo.lower()
+            term_lower = term.lower()
             like_text = f"%{term_lower}%"
 
-            like_valor_dot = f"%{termo.replace(',', '.')}%"
-            like_valor_comma = f"%{termo.replace('.', ',')}%"
+            like_value_dot = f"%{term.replace(',', '.')}%"
+            like_value_comma = f"%{term.replace('.', ',')}%"
 
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT
                     id,
-                    strftime('%d/%m/%Y', data_emissao) AS data_br,
-                    numero,
-                    cliente,
-                    valor
-                FROM notas
+                    strftime('%d/%m/%Y', issue_date) AS br_date,
+                    number,
+                    customer,
+                    value
+                FROM invoices
                 WHERE
-                    strftime('%d/%m/%Y', data_emissao) LIKE ? OR
-                    LOWER(numero) LIKE ? OR
-                    LOWER(cliente) LIKE ? OR
-                    LOWER(COALESCE(telefone, '')) LIKE ? OR
+                    strftime('%d/%m/%Y', issue_date) LIKE ? OR
+                    LOWER(number) LIKE ? OR
+                    LOWER(customer) LIKE ? OR
+                    LOWER(COALESCE(phone, '')) LIKE ? OR
                     LOWER(COALESCE(email, '')) LIKE ? OR
                     LOWER(COALESCE(cnpj, '')) LIKE ? OR
-                    LOWER(COALESCE(endereco, '')) LIKE ? OR
-                    CAST(valor AS TEXT) LIKE ? OR
-                    REPLACE(CAST(valor AS TEXT), '.', ',') LIKE ?
-                ORDER BY data_emissao DESC
-                """,
-                (
-                    f"%{termo}%",  # data
-                    like_text,  # numero
-                    like_text,  # cliente
-                    like_text,  # telefone
-                    like_text,  # email
-                    like_text,  # cnpj
-                    like_text,  # endereco
-                    like_valor_dot,  # valor com ponto
-                    like_valor_comma,  # valor com vírgula
-                ),
-            )
+                    LOWER(COALESCE(address, '')) LIKE ? OR
+                    CAST(value AS TEXT) LIKE ? OR
+                    REPLACE(CAST(value AS TEXT), '.', ',') LIKE ?
+                ORDER BY issue_date DESC
+            """, (
+                f"%{term}%",  # date
+                like_text,  # number
+                like_text,  # customer
+                like_text,  # phone
+                like_text,  # email
+                like_text,  # cnpj
+                like_text,  # address
+                like_value_dot,  # value with dot
+                like_value_comma,  # value with comma
+            ))
             return cursor.fetchall()
 
-    def update_nota(
-        self,
-        id_nota: int,
-        data: str,
-        numero: str,
-        cliente: str,
-        valor: float,
-        telefone: str = "",
-        email: str = "",
-        cnpj: str = "",
-        endereco: str = "",
-    ) -> bool:
+    def update_invoice(self, invoice_id: int, issue_date: str, number: str, customer: str,
+                      value: float, phone: str = "", email: str = "", cnpj: str = "",
+                      address: str = "") -> bool:
         """
-        Atualiza os dados de uma nota fiscal existente.
+        Updates data of an existing invoice.
 
         Args:
-            id_nota: ID da nota a ser atualizada
-            data: Nova data de emissão no formato YYYY-MM-DD
-            numero: Novo número da nota fiscal
-            cliente: Novo nome do cliente
-            valor: Novo valor da nota fiscal
-            telefone: Novo telefone do cliente (opcional)
-            email: Novo email do cliente (opcional)
-            cnpj: Novo CNPJ do cliente (opcional)
-            endereco: Novo endereço do cliente (opcional)
+            invoice_id: ID of invoice to update
+            issue_date: New issue date in YYYY-MM-DD format
+            number: New invoice number
+            customer: New customer name
+            value: New invoice value
+            phone: New customer phone (optional)
+            email: New customer email (optional)
+            cnpj: New customer CNPJ (optional)
+            address: New customer address (optional)
 
         Returns:
-            True se a atualização foi bem-sucedida, False se o número já existe
+            True if update successful, False if number already exists
         """
         try:
             with sqlite3.connect(self.db_file) as conn:
                 cursor = conn.cursor()
-                cursor.execute(
-                    """
-                    UPDATE notas 
-                    SET data_emissao = ?, numero = ?, cliente = ?, valor = ?,
-                        telefone = ?, email = ?, cnpj = ?, endereco = ?
+                cursor.execute("""
+                    UPDATE invoices 
+                    SET issue_date = ?, number = ?, customer = ?, value = ?,
+                        phone = ?, email = ?, cnpj = ?, address = ?
                     WHERE id = ?
-                    """,
-                    (
-                        data,
-                        numero,
-                        cliente,
-                        valor,
-                        telefone,
-                        email,
-                        cnpj,
-                        endereco,
-                        id_nota,
-                    ),
-                )
+                """, (issue_date, number, customer, value, phone, email, cnpj, address, invoice_id))
             return True
         except sqlite3.IntegrityError:
             return False
 
     # ==============================================
-    # MÉTODOS PARA CLIENTES (CORRIGIDOS E COMPLETOS)
+    # CUSTOMER METHODS (CORRECTED AND COMPLETE)
     # ==============================================
 
-    def insert_cliente(
-        self,
-        nome: str,
-        telefone: str = "",
-        email: str = "",
-        cnpj: str = "",
-        endereco: str = "",
-    ) -> bool:
+    # database.py - método insert_customer
+    def insert_customer(self, name: str, phone: str = "", email: str = "",
+                    cnpj: str = "", address: str = "") -> bool:
         """
-        Insere um novo cliente no banco de dados.
+        Inserts a new customer into the database.
 
         Args:
-            nome: Nome do cliente (obrigatório, único)
-            telefone: Telefone do cliente (opcional)
-            email: Email do cliente (opcional)
-            cnpj: CNPJ do cliente (opcional)
-            endereco: Endereço do cliente (opcional)
+            name: Customer name (required, unique among active customers)
+            phone: Customer phone (optional)
+            email: Customer email (optional)
+            cnpj: Customer CNPJ (optional)
+            address: Customer address (optional)
 
         Returns:
-            True se a inserção foi bem-sucedida, False se o nome já existe
+            True if insertion successful, False if name already exists among active customers
         """
         try:
-            with sqlite3.connect(self.client_db_file) as conn:
+            with sqlite3.connect(self.customer_db_file) as conn:
                 cursor = conn.cursor()
-                cursor.execute(
-                    """
-                    INSERT INTO clientes (nome, telefone, email, cnpj, endereco)
+                
+                # Check if active customer with same name already exists
+                cursor.execute("""
+                    SELECT COUNT(*) FROM customers 
+                    WHERE name = ? AND active = 1
+                """, (name,))
+                
+                if cursor.fetchone()[0] > 0:
+                    return False  # Active customer with same name exists
+                
+                # Insert new customer
+                cursor.execute("""
+                    INSERT INTO customers (name, phone, email, cnpj, address)
                     VALUES (?, ?, ?, ?, ?)
-                    """,
-                    (nome, telefone, email, cnpj, endereco),
-                )
-            return True
+                """, (name, phone, email, cnpj, address))
+                
+                return True
         except sqlite3.IntegrityError:
             return False
 
-    def get_all_clientes(self) -> List[Tuple]:
+    def get_all_customers(self) -> List[Tuple]:
         """
-        Retorna todos os clientes ativos ordenados por nome.
+        Returns all active customers ordered by name.
 
         Returns:
-            Lista de tuplas com (id, nome, telefone, email, cnpj, endereco)
+            List of tuples with (id, name, phone, email, cnpj, address)
         """
-        with sqlite3.connect(self.client_db_file) as conn:
+        with sqlite3.connect(self.customer_db_file) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT id, nome, telefone, email, cnpj, endereco
-                FROM clientes 
-                WHERE ativo = 1 
-                ORDER BY nome
-                """
-            )
+            cursor.execute("""
+                SELECT id, name, phone, email, cnpj, address
+                FROM customers 
+                WHERE active = 1 
+                ORDER BY name
+            """)
             return cursor.fetchall()
 
-    def get_cliente_por_id(self, id_cliente: int) -> Optional[Tuple]:
+    def get_customer_by_id(self, customer_id: int) -> Optional[Tuple]:
         """
-        Retorna um cliente específico pelo ID.
+        Returns a specific customer by ID.
 
         Args:
-            id_cliente: ID do cliente
+            customer_id: Customer ID
 
         Returns:
-            Tupla com (id, nome, telefone, email, cnpj, endereco) ou None
+            Tuple with (id, name, phone, email, cnpj, address) or None
         """
-        with sqlite3.connect(self.client_db_file) as conn:
+        with sqlite3.connect(self.customer_db_file) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT id, nome, telefone, email, cnpj, endereco
-                FROM clientes 
-                WHERE id = ? AND ativo = 1
-                """,
-                (id_cliente,),
-            )
+            cursor.execute("""
+                SELECT id, name, phone, email, cnpj, address
+                FROM customers 
+                WHERE id = ? AND active = 1
+            """, (customer_id,))
             return cursor.fetchone()
 
-    def get_cliente_por_nome(self, nome: str) -> Optional[Tuple]:
+    def get_customer_by_name(self, name: str) -> Optional[Tuple]:
         """
-        Retorna um cliente pelo nome exato.
+        Returns a customer by exact name.
 
         Args:
-            nome: Nome do cliente
+            name: Customer name
 
         Returns:
-            Tupla com (id, nome, telefone, email, cnpj, endereco) ou None
+            Tuple with (id, name, phone, email, cnpj, address) or None
         """
-        with sqlite3.connect(self.client_db_file) as conn:
+        with sqlite3.connect(self.customer_db_file) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT id, nome, telefone, email, cnpj, endereco
-                FROM clientes 
-                WHERE nome = ? AND ativo = 1
-                """,
-                (nome,),
-            )
+            cursor.execute("""
+                SELECT id, name, phone, email, cnpj, address
+                FROM customers 
+                WHERE name = ? AND active = 1
+            """, (name,))
             return cursor.fetchone()
 
-    def update_cliente(
-        self,
-        id_cliente: int,
-        nome: str,
-        telefone: str = "",
-        email: str = "",
-        cnpj: str = "",
-        endereco: str = "",
-    ) -> bool:
+    def update_customer(self, customer_id: int, name: str, phone: str = "",
+                       email: str = "", cnpj: str = "", address: str = "") -> bool:
         """
-        Atualiza os dados de um cliente existente.
+        Updates data of an existing customer.
 
         Args:
-            id_cliente: ID do cliente a ser atualizado
-            nome: Novo nome do cliente
-            telefone: Novo telefone do cliente (opcional)
-            email: Novo email do cliente (opcional)
-            cnpj: Novo CNPJ do cliente (opcional)
-            endereco: Novo endereço do cliente (opcional)
+            customer_id: ID of customer to update
+            name: New customer name
+            phone: New customer phone (optional)
+            email: New customer email (optional)
+            cnpj: New customer CNPJ (optional)
+            address: New customer address (optional)
 
         Returns:
-            True se a atualização foi bem-sucedida, False se o novo nome já existe
+            True if update successful, False if new name already exists
         """
         try:
-            with sqlite3.connect(self.client_db_file) as conn:
+            with sqlite3.connect(self.customer_db_file) as conn:
                 cursor = conn.cursor()
-                cursor.execute(
-                    """
-                    UPDATE clientes 
-                    SET nome = ?, telefone = ?, email = ?, cnpj = ?, endereco = ?
+                cursor.execute("""
+                    UPDATE customers 
+                    SET name = ?, phone = ?, email = ?, cnpj = ?, address = ?
                     WHERE id = ?
-                    """,
-                    (nome, telefone, email, cnpj, endereco, id_cliente),
-                )
+                """, (name, phone, email, cnpj, address, customer_id))
             return True
         except sqlite3.IntegrityError:
             return False
 
-    def delete_cliente(self, id_cliente: int) -> bool:
+    def delete_customer(self, customer_id: int) -> bool:
         """
-        Exclui um cliente (desativa) pelo ID.
+        Deletes a customer (deactivates) by ID.
 
         Args:
-            id_cliente: ID do cliente a ser excluído
+            customer_id: ID of customer to delete
 
         Returns:
-            True se a exclusão foi bem-sucedida
+            True if deletion successful
         """
         try:
-            with sqlite3.connect(self.client_db_file) as conn:
+            with sqlite3.connect(self.customer_db_file) as conn:
                 cursor = conn.cursor()
-                cursor.execute(
-                    "UPDATE clientes SET ativo = 0 WHERE id = ?", (id_cliente,)
-                )
+                cursor.execute("UPDATE customers SET active = 0 WHERE id = ?", (customer_id,))
             return True
         except Exception:
             return False
 
-    def delete_all_clientes(self) -> bool:
+    def delete_all_customers(self) -> bool:
         """
-        Exclui todos os clientes (desativa).
+        Deletes all customers (deactivates).
 
         Returns:
-            True se a exclusão foi bem-sucedida
+            True if deletion successful
         """
         try:
-            with sqlite3.connect(self.client_db_file) as conn:
+            with sqlite3.connect(self.customer_db_file) as conn:
                 cursor = conn.cursor()
-                cursor.execute("UPDATE clientes SET ativo = 0")
+                cursor.execute("UPDATE customers SET active = 0")
             return True
         except Exception:
             return False
 
-    def search_clientes(self, termo: str) -> List[Tuple]:
+    def search_customers(self, term: str) -> List[Tuple]:
         """
-        Busca clientes por qualquer campo que contenha o termo.
+        Searches customers by any field containing the term.
 
         Args:
-            termo: Termo de busca
+            term: Search term
 
         Returns:
-            Lista de tuplas com clientes encontrados
+            List of tuples with found customers
         """
-        with sqlite3.connect(self.client_db_file) as conn:
+        with sqlite3.connect(self.customer_db_file) as conn:
             cursor = conn.cursor()
-            term_lower = termo.lower()
+            term_lower = term.lower()
             like_text = f"%{term_lower}%"
 
-            cursor.execute(
-                """
-                SELECT id, nome, telefone, email, cnpj, endereco
-                FROM clientes
+            cursor.execute("""
+                SELECT id, name, phone, email, cnpj, address
+                FROM customers
                 WHERE 
-                    (LOWER(nome) LIKE ? OR
-                     LOWER(telefone) LIKE ? OR
+                    (LOWER(name) LIKE ? OR
+                     LOWER(phone) LIKE ? OR
                      LOWER(email) LIKE ? OR
                      LOWER(cnpj) LIKE ? OR
-                     LOWER(endereco) LIKE ?) 
-                    AND ativo = 1
-                ORDER BY nome
-                """,
-                (like_text, like_text, like_text, like_text, like_text),
-            )
+                     LOWER(address) LIKE ?) 
+                    AND active = 1
+                ORDER BY name
+            """, (like_text, like_text, like_text, like_text, like_text))
             return cursor.fetchall()
 
-    def get_total_clientes(self) -> int:
+    def get_total_customers(self) -> int:
         """
-        Retorna o total de clientes ativos no sistema.
+        Returns total number of active customers in the system.
 
         Returns:
-            Número total de clientes ativos
+            Total number of active customers
         """
-        with sqlite3.connect(self.client_db_file) as conn:
+        with sqlite3.connect(self.customer_db_file) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM clientes WHERE ativo = 1")
+            cursor.execute("SELECT COUNT(*) FROM customers WHERE active = 1")
             return cursor.fetchone()[0]
 
-    def cliente_existe(self, nome: str, cnpj: str = "") -> bool:
+    # database.py - método customer_exists
+    def customer_exists(self, name: str, cnpj: str = "") -> bool:
         """
-        Verifica se já existe um cliente com o mesmo nome ou CNPJ.
+        Checks if an active customer with same name or CNPJ already exists.
 
         Args:
-            nome: Nome do cliente a verificar
-            cnpj: CNPJ do cliente a verificar (opcional)
+            name: Customer name to check
+            cnpj: Customer CNPJ to check (optional)
 
         Returns:
-            True se o cliente já existe, False caso contrário
+            True if active customer already exists, False otherwise
         """
-        with sqlite3.connect(self.client_db_file) as conn:
+        with sqlite3.connect(self.customer_db_file) as conn:
             cursor = conn.cursor()
 
             if cnpj:
-                cursor.execute(
-                    """
-                    SELECT COUNT(*) FROM clientes 
-                    WHERE (nome = ? OR cnpj = ?) AND ativo = 1
-                    """,
-                    (nome, cnpj),
-                )
+                cursor.execute("""
+                    SELECT COUNT(*) FROM customers 
+                    WHERE (name = ? OR cnpj = ?) AND active = 1
+                """, (name, cnpj))
             else:
-                cursor.execute(
-                    """
-                    SELECT COUNT(*) FROM clientes 
-                    WHERE nome = ? AND ativo = 1
-                    """,
-                    (nome,),
-                )
+                cursor.execute("""
+                    SELECT COUNT(*) FROM customers 
+                    WHERE name = ? AND active = 1
+                """, (name,))
 
             return cursor.fetchone()[0] > 0

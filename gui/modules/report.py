@@ -149,7 +149,8 @@ class Report(tb.Frame):
 
     def _generate_general_report(self):
         """Gera relatório geral com todas as notas."""
-        notas = self.database.get_all_notas()
+        # CORREÇÃO: get_all_notas() -> get_all_invoices()
+        notas = self.database.get_all_invoices()
         self._display_report(notas, "Relatório Geral - Todas as Notas")
 
     def _generate_period_report(self):
@@ -167,7 +168,8 @@ class Report(tb.Frame):
             show_error(self, "Formato de data inválido!")
             return
 
-        notas = self.database.get_notas_por_periodo(inicio_sql, fim_sql)
+        # CORREÇÃO: get_notas_por_periodo() -> get_invoices_by_period()
+        notas = self.database.get_invoices_by_period(inicio_sql, fim_sql)
         self._display_report(notas, f"Relatório - Período: {inicio} a {fim}")
 
     def _generate_client_report(self):
@@ -181,7 +183,8 @@ class Report(tb.Frame):
             show_error(self, "Digite o nome do cliente.")
             return
 
-        notas = self.database.get_notas_por_cliente(cliente)
+        # CORREÇÃO: get_notas_por_cliente() -> get_invoices_by_customer()
+        notas = self.database.get_invoices_by_customer(cliente)
         self._display_report(notas, f"Relatório - Cliente: '{cliente}'")
 
     def _show_period_selection(self):
@@ -408,15 +411,13 @@ class Report(tb.Frame):
             id_nota, data_br, numero, cliente, valor = nota[:5]
             # Formatar para caber melhor na tela
             cliente_display = cliente[:30] + "..." if len(cliente) > 30 else cliente
-            linha = f"{data_br:10} {numero:10} {cliente_display:33} {utils.formatar_moeda(valor):>15}\n"
+            linha = f"{data_br:10} {numero:10} {cliente_display:33} {utils.format_currency(valor):>15}\n"
             self.results_text.insert(tk.END, linha, "normal")
 
         # Totais - usando estilo SUCCESS do tema
         self.results_text.insert(tk.END, "\n" + "=" * 80 + "\n", "normal")
         self.results_text.insert(tk.END, f"Total de notas: {total_notas}\n", "total")
-        self.results_text.insert(
-            tk.END, f"Valor total: {utils.formatar_moeda(total_valor)}\n", "total"
-        )
+        self.results_text.insert(tk.END, f"Valor total: {utils.format_currency(total_valor)}\n", "total")
 
         # Perguntar se deseja exportar
         self.results_text.insert(tk.END, "\n" + "-" * 80 + "\n", "normal")
@@ -429,16 +430,17 @@ class Report(tb.Frame):
 
     def _export_report(self, notas, title):
         """Exporta o relatório para CSV."""
-        from ..modules.export_note import ExportNotes
+        # CORREÇÃO: Importar o módulo correto (invoice_export em vez de export_note)
+        from ..modules.invoice_export import InvoiceExport
 
         # Extrair IDs das notas
         note_ids = [nota[0] for nota in notas]
 
         # Usar o módulo de exportação existente
-        export_module = ExportNotes(
+        export_module = InvoiceExport(
             self, self.controller, self.theme_manager, self.database
         )
-        export_module.export_notes(
+        export_module.export_invoices(
             note_ids, f"relatorio_{title.lower().replace(' ', '_')}"
         )
 

@@ -1,7 +1,7 @@
 # gui/modules/backup.py
 """
-Interface para gerenciamento de backups do banco notes.db usando ttkbootstrap.
-Agora cria e restaura apenas o banco de dados, com feedback imediato na aplicação.
+Interface para gerenciamento de backups dos bancos de dados usando ttkbootstrap.
+Agora cria e restaura backups de invoices.db e customers.db em um arquivo ZIP.
 """
 
 import tkinter as tk
@@ -9,6 +9,7 @@ import ttkbootstrap as tb
 from ttkbootstrap.constants import *
 from datetime import datetime
 import shutil
+import zipfile
 from pathlib import Path
 from ..utils.file_browser import askopenfilename, asksaveasfilename
 from ..utils.popups import show_error, show_info, ask_yes_no
@@ -20,7 +21,7 @@ from ..utils import (
 
 
 class ConfigBackup(tb.Frame):
-    """Gerencia backup e restauração do banco de dados como diálogo modal."""
+    """Gerencia backup e restauração dos bancos de dados como diálogo modal."""
 
     def __init__(self, parent, controller, theme_manager, database):
         super().__init__(parent)
@@ -28,7 +29,9 @@ class ConfigBackup(tb.Frame):
         self.controller = controller
         self.theme_manager = theme_manager
         self.database = database
-        self.db_path = self.database.db_file
+        self.invoices_db_path = self.database.db_file
+        self.customers_db_path = self.database.customer_db_file
+        self.data_dir = self.database.data_dir
 
     def handle_backup(self):
         """Abre o diálogo de gerenciamento de backup."""
@@ -70,7 +73,7 @@ class ConfigBackup(tb.Frame):
             command=lambda: self._create_backup_confirm(dialog),
         )
         btn_create.pack(fill=tk.X, pady=6)
-        create_success_tooltip(btn_create, "Cria um backup do banco de dados atual.")
+        create_success_tooltip(btn_create, "Cria um backup completo dos bancos de dados (invoices.db e customers.db).")
 
         # Botão: Restaurar Backup
         btn_restore = tb.Button(
@@ -82,7 +85,7 @@ class ConfigBackup(tb.Frame):
         btn_restore.pack(fill=tk.X, pady=6)
         create_warning_tooltip(
             btn_restore,
-            "Restaura um backup existente do banco de dados.\nIsso substituirá os dados atuais!",
+            "Restaura um backup existente dos bancos de dados.\nIsso substituirá os dados atuais!",
         )
 
         # Botão: Cancelar
@@ -118,37 +121,63 @@ class ConfigBackup(tb.Frame):
         self.restore_backup()
 
     def create_backup(self):
-        """Cria backup do banco de dados notes.db."""
+        """Cria backup dos bancos de dados em um arquivo ZIP."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        default_filename = f"backup_notes_{timestamp}.db"
+        # CORREÇÃO: Nome do arquivo atualizado para backup_GNF_timestamp.zip
+        default_filename = f"backup_GNF_{timestamp}.zip"
 
         file_path = asksaveasfilename(
             parent=self.parent,
             title="Salvar Backup Como",
             initialfile=default_filename,
-            filetypes=[("Banco de Dados SQLite", "*.db")],
+            filetypes=[("Arquivo ZIP", "*.zip")],
         )
 
         if file_path:
-            # Garantir extensão .db
-            if not file_path.lower().endswith(".db"):
-                file_path = f"{file_path}.db"
+            # Garantir extensão .zip
+            if not file_path.lower().endswith(".zip"):
+                file_path = f"{file_path}.zip"
 
             try:
-                shutil.copy2(self.db_path, file_path)
+                # Verificar se os arquivos de banco de dados existem
+                if not self.invoices_db_path.exists():
+                    show_error(self.parent, "Arquivo invoices.db não encontrado!")
+                    return
+                
+                if not self.customers_db_path.exists():
+                    show_error(self.parent, "Arquivo customers.db não encontrado!")
+                    return
+
+                # Criar arquivo ZIP
+                with zipfile.ZipFile(file_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                    # Adicionar ambos os bancos de dados ao ZIP
+                    zipf.write(self.invoices_db_path, "invoices.db")
+                    zipf.write(self.customers_db_path, "customers.db")
+                    
+                    # Adicionar informações do backup
+                    info_content = f"""Backup criado em: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}
+Sistema: Gerenciador de Notas Fiscais
+Arquivos incluídos:
+- invoices.db (Notas Fiscais)
+- customers.db (Clientes)"""
+                    
+                    zipf.writestr("backup_info.txt", info_content)
+
                 show_info(
                     self.parent,
-                    f"Backup criado com sucesso!\n\nArquivo: {file_path}",
+                    f"Backup criado com sucesso!\n\n"
+                    f"Arquivo: {file_path}\n"
+                    f"Contém: invoices.db e customers.db",
                 )
             except Exception as e:
-                show_error(self.parent, f"Falha ao criar backup!\n{e}")
+                show_error(self.parent, f"Falha ao criar backup!\n{str(e)}")
 
     def restore_backup(self):
-        """Restaura backup do banco de dados notes.db e atualiza a aplicação."""
+        """Restaura backup dos bancos de dados a partir de um arquivo ZIP."""
         file_path = askopenfilename(
             parent=self.parent,
             title="Selecionar Arquivo de Backup",
-            filetypes=[("Banco de Dados SQLite", "*.db")],
+            filetypes=[("Arquivo ZIP", "*.zip")],
         )
 
         if file_path:
@@ -161,8 +190,36 @@ class ConfigBackup(tb.Frame):
 
             if result == "Sim":
                 try:
-                    # Substituir apenas o arquivo do banco de dados
-                    shutil.copy2(file_path, self.db_path)
+                    # Verificar se o arquivo ZIP é válido
+                    if not zipfile.is_zipfile(file_path):
+                        show_error(self.parent, "Arquivo ZIP inválido!")
+                        return
+
+                    # Extrair arquivos temporariamente
+                    temp_dir = self.data_dir / "temp_restore"
+                    temp_dir.mkdir(exist_ok=True)
+
+                    with zipfile.ZipFile(file_path, 'r') as zipf:
+                        # Verificar se os arquivos necessários estão no ZIP
+                        file_list = zipf.namelist()
+                        if "invoices.db" not in file_list or "customers.db" not in file_list:
+                            show_error(
+                                self.parent,
+                                "Arquivo ZIP não contém os bancos de dados necessários!\n"
+                                "Certifique-se de que o backup contenha invoices.db e customers.db"
+                            )
+                            return
+                        
+                        # Extrair arquivos
+                        zipf.extractall(temp_dir)
+
+                    # CORREÇÃO: Removido o backup automático dos arquivos atuais
+                    # Substituir diretamente os arquivos atuais
+                    shutil.copy2(temp_dir / "invoices.db", self.invoices_db_path)
+                    shutil.copy2(temp_dir / "customers.db", self.customers_db_path)
+
+                    # Limpar diretório temporário
+                    shutil.rmtree(temp_dir)
 
                     # Atualizar a view atual para refletir os dados
                     if hasattr(self.controller, "refresh_current_view"):
@@ -170,7 +227,19 @@ class ConfigBackup(tb.Frame):
 
                     show_info(
                         self.parent,
-                        "Backup restaurado com sucesso e dados atualizados!",
+                        "Backup restaurado com sucesso!\n\n"
+                        "Dados atualizados:\n"
+                        "- Notas fiscais\n"
+                        "- Clientes",
                     )
                 except Exception as e:
-                    show_error(self.parent, f"Falha ao restaurar backup!\n{e}")
+                    show_error(self.parent, f"Falha ao restaurar backup!\n{str(e)}")
+
+    def verify_backup_files(self, zip_path):
+        """Verifica se o arquivo ZIP contém os arquivos necessários."""
+        try:
+            with zipfile.ZipFile(zip_path, 'r') as zipf:
+                file_list = zipf.namelist()
+                return "invoices.db" in file_list and "customers.db" in file_list
+        except Exception:
+            return False
