@@ -1,4 +1,4 @@
-# core/theme_manager.py (limpo)
+# core/theme_manager.py
 """
 Gerenciador de temas visuais para a aplicação usando ttkbootstrap.
 Oferece temas claros, escuros e personalizados com variantes.
@@ -282,49 +282,6 @@ class ThemeManager:
 
         except Exception as e:
             print(f"Erro geral ao registrar temas customizados: {e}")
-
-    def _register_custom_themes_json_method(self):
-        """Método alternativo para registrar temas via arquivo JSON"""
-        if not self.custom_themes:
-            return
-
-        try:
-            # Criar arquivo JSON temporário
-            temp_json_path = self.custom_themes_dir / "temp_themes.json"
-            themes_data = {"themes": []}
-
-            for theme_name, theme_def in self.custom_themes.items():
-                # Garantir formato correto das cores
-                colors = theme_def.get("colors", {})
-                if isinstance(colors, (list, tuple)):
-                    colors_dict = {}
-                    for color_item in colors:
-                        if (
-                            isinstance(color_item, (list, tuple))
-                            and len(color_item) == 2
-                        ):
-                            key, value = color_item
-                            colors_dict[key] = value
-                    theme_def["colors"] = colors_dict
-
-                themes_data["themes"].append({theme_name: theme_def})
-
-            # Salvar arquivo temporário
-            with open(temp_json_path, "w", encoding="utf-8") as f:
-                json.dump(themes_data, f, indent=2, ensure_ascii=False)
-
-            # Tentar carregar temas usando o método oficial
-            try:
-                self.style.load_user_themes(str(temp_json_path))
-            except Exception as e:
-                print(f"Erro com load_user_themes: {e}")
-
-            # Remover arquivo temporário
-            if temp_json_path.exists():
-                temp_json_path.unlink()
-
-        except Exception as e:
-            print(f"Erro no método JSON: {e}")
 
     def _get_available_themes(self) -> Dict[str, Dict[str, Any]]:
         """

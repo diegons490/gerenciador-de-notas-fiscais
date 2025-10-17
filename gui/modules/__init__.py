@@ -1,3 +1,4 @@
+# gui/modules/__init__.py
 """
 Módulo de views da aplicação ttkbootstrap.
 """
@@ -45,8 +46,7 @@ __all__ = [
     # Tabelas
     "SortManager",
     "BaseTableManager",
-    "NotesTableManager",
-    "ClientsTableManager",
+    "InvoicesTableManager",
+    "CustomersTableManager",
     "TableManagerFactory",
-
 ]

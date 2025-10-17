@@ -543,31 +543,3 @@ class Database:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM customers WHERE active = 1")
             return cursor.fetchone()[0]
-
-    # database.py - método customer_exists
-    def customer_exists(self, name: str, cnpj: str = "") -> bool:
-        """
-        Checks if an active customer with same name or CNPJ already exists.
-
-        Args:
-            name: Customer name to check
-            cnpj: Customer CNPJ to check (optional)
-
-        Returns:
-            True if active customer already exists, False otherwise
-        """
-        with sqlite3.connect(self.customer_db_file) as conn:
-            cursor = conn.cursor()
-
-            if cnpj:
-                cursor.execute("""
-                    SELECT COUNT(*) FROM customers 
-                    WHERE (name = ? OR cnpj = ?) AND active = 1
-                """, (name, cnpj))
-            else:
-                cursor.execute("""
-                    SELECT COUNT(*) FROM customers 
-                    WHERE name = ? AND active = 1
-                """, (name,))
-
-            return cursor.fetchone()[0] > 0

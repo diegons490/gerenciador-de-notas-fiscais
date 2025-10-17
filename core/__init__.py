@@ -1,6 +1,7 @@
+# core/__init__.py
 """
-Módulo principal do sistema de gerenciamento de notas fiscais.
-Contém as classes e funções fundamentais para o funcionamento do aplicativo.
+Main module of the invoice management system.
+Contains the fundamental classes and functions for the application to function.
 """
 
 from .database import Database
@@ -11,6 +12,8 @@ from .utils import (
     validate_currency,
     validate_date,
     format_sql_date,
+    format_typing_value,
+    apply_final_value_format,
     validate_invoice_number,
     validate_phone,
     format_phone,
@@ -21,6 +24,8 @@ from .utils import (
     validate_required_field,
     validate_invoice_form,
     validate_customer_form,
+    format_with_cursor_reposition,
+    validate_email_with_style,
 )
 
 # Aliases para manter compatibilidade com código existente
@@ -30,6 +35,8 @@ converter_para_decimal = convert_to_decimal
 validar_moeda = validate_currency
 validar_data = validate_date
 formatar_data_sql = format_sql_date
+formatar_valor_digitacao = format_typing_value
+aplicar_formatacao_valor_final = apply_final_value_format
 validar_numero_nota = validate_invoice_number
 validar_telefone = validate_phone
 formatar_telefone = format_phone
@@ -40,6 +47,8 @@ limpar_numero = clean_number
 validar_campo_obrigatorio = validate_required_field
 validar_formulario_nota = validate_invoice_form
 validar_formulario_cliente = validate_customer_form
+formatar_com_reposicionamento_cursor = format_with_cursor_reposition
+validar_email_com_estilo = validate_email_with_style
 
 __all__ = [
     # Classes principais
@@ -52,6 +61,8 @@ __all__ = [
     "validate_currency",
     "validate_date",
     "format_sql_date",
+    "format_typing_value",
+    "apply_final_value_format",
     "validate_invoice_number",
     "validate_phone",
     "format_phone",
@@ -62,6 +73,8 @@ __all__ = [
     "validate_required_field",
     "validate_invoice_form",
     "validate_customer_form",
+    "format_with_cursor_reposition",
+    "validate_email_with_style",
     
     # Aliases em português (para compatibilidade)
     "formatar_moeda",
@@ -69,6 +82,8 @@ __all__ = [
     "validar_moeda",
     "validar_data",
     "formatar_data_sql",
+    "formatar_valor_digitacao",
+    "aplicar_formatacao_valor_final",
     "validar_numero_nota",
     "validar_telefone",
     "formatar_telefone",
@@ -79,4 +94,6 @@ __all__ = [
     "validar_campo_obrigatorio",
     "validar_formulario_nota",
     "validar_formulario_cliente",
+    "formatar_com_reposicionamento_cursor",
+    "validar_email_com_estilo",
 ]

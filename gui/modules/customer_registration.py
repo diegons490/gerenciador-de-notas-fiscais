@@ -1,6 +1,7 @@
 # gui/modules/customer_registration.py
 """
 Complete interface for customer registration and management using ttkbootstrap.
+Agora usa funções centralizadas do utils.py para formatação.
 """
 
 import tkinter as tk
@@ -164,13 +165,26 @@ class CustomerRegistration(tb.Frame):
             entry.grid(row=row, column=1, sticky="ew", pady=5, padx=10)
 
             if label == "Telefone:":
-                entry.bind("<KeyRelease>", self.format_phone_wrapper)
+                entry.bind(
+                    "<KeyRelease>",
+                    lambda e, v=var: utils.format_with_cursor_reposition(
+                        v, utils.format_phone, e
+                    ),
+                )
                 create_info_tooltip(entry, "Telefone do cliente (formato: (00) 00000-0000).")
             elif label == "Email:":
-                entry.bind("<FocusOut>", self.validate_email_wrapper)
+                entry.bind(
+                    "<FocusOut>",
+                    lambda e, v=var, w=entry: utils.validate_email_with_style(v, w, e),
+                )
                 create_info_tooltip(entry, "Email do cliente (exemplo@dominio.com).")
             elif label == "CNPJ:":
-                entry.bind("<KeyRelease>", self.format_cnpj_wrapper)
+                entry.bind(
+                    "<KeyRelease>",
+                    lambda e, v=var: utils.format_with_cursor_reposition(
+                        v, utils.format_cnpj, e
+                    ),
+                )
                 create_info_tooltip(entry, "CNPJ do cliente (00.000.000/0000-00).")
             else:
                 create_info_tooltip(entry, f"{label.replace(':', '')} do cliente.")
@@ -266,38 +280,6 @@ class CustomerRegistration(tb.Frame):
         """Clears the last customer labels."""
         for label in self.last_customer_labels.values():
             label.config(text="-")
-
-    def format_phone_wrapper(self, event=None):
-        """Formats phone number during typing."""
-        phone = self.phone_var.get()
-        formatted = utils.format_phone(phone)
-        if phone != formatted:
-            self.phone_var.set(formatted)
-            try:
-                if event and getattr(event, "widget", None):
-                    event.widget.after_idle(lambda: event.widget.icursor(tk.END))
-            except Exception:
-                pass
-
-    def format_cnpj_wrapper(self, event=None):
-        """Formats CNPJ during typing."""
-        cnpj = self.cnpj_var.get()
-        formatted = utils.format_cnpj(cnpj)
-        if cnpj != formatted:
-            self.cnpj_var.set(formatted)
-            try:
-                if event and getattr(event, "widget", None):
-                    event.widget.after_idle(lambda: event.widget.icursor(tk.END))
-            except Exception:
-                pass
-
-    def validate_email_wrapper(self, event=None):
-        """Validates email when focus is lost."""
-        email = self.email_var.get()
-        if email and not utils.validate_email(email):
-            event.widget.configure(bootstyle=DANGER)
-        else:
-            event.widget.configure(bootstyle=PRIMARY)
 
     def on_search(self, event=None):
         """Handler for search. Uses self.search_var to avoid focus loss."""

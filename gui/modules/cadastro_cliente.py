@@ -1,11 +1,6 @@
 # gui/modules/cadastro_cliente.py
 """
 Interface completa para cadastro e gerenciamento de clientes usando ttkbootstrap.
-Correções:
-- Barra de pesquisa implementada localmente para evitar perda de foco do Entry durante digitação.
-- Botão 'Limpar' ao lado da pesquisa fica habilitado apenas quando há texto.
-- Botão 'Limpar Campos' fica habilitado apenas quando houver qualquer caractere em algum input do formulário.
-- Após atualização da tabela, o foco e o cursor do Entry são restaurados usando after_idle.
 """
 
 import tkinter as tk

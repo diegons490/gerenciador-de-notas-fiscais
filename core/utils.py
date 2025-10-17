@@ -5,6 +5,7 @@ Helper functions for handling dates, monetary values and other formats.
 """
 
 import re
+import tkinter as tk
 from datetime import datetime
 from typing import Optional, Union
 
@@ -277,13 +278,39 @@ def validate_customer_form(name: str, phone: str = "", email: str = "", cnpj: st
     return True, ""
 
 
-def convert_date_for_sorting(date_str):
-    """Converts date string to date object for sorting."""
-    try:
-        if (isinstance(date_str, str) and len(date_str) == 10 
-            and date_str[2] == "/" and date_str[5] == "/"):
-            day, month, year = map(int, date_str.split("/"))
-            return datetime.date(year, month, day)
-    except (ValueError, IndexError):
-        pass
-    return date_str
+def format_with_cursor_reposition(value_var, format_function, event=None):
+    """
+    Generic function to format values and reposition cursor.
+    
+    Args:
+        value_var: StringVar to format
+        format_function: Function that takes string and returns formatted string
+        event: Optional event for widget access
+    """
+    current = value_var.get()
+    if current:
+        formatted = format_function(current)
+        if current != formatted:
+            value_var.set(formatted)
+            # Always reposition cursor at the end
+            try:
+                if event and getattr(event, "widget", None):
+                    event.widget.after_idle(lambda: event.widget.icursor(tk.END))
+            except Exception:
+                pass
+
+
+def validate_email_with_style(email_var, widget, event=None):
+    """
+    Validates email and updates widget style.
+    
+    Args:
+        email_var: StringVar with email value
+        widget: Widget to apply style
+        event: Optional event
+    """
+    email = email_var.get()
+    if email and not validate_email(email):
+        widget.configure(bootstyle="danger")
+    else:
+        widget.configure(bootstyle="primary")

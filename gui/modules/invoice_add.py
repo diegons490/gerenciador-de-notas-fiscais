@@ -67,19 +67,7 @@ class InvoiceAddManager:
         if current:
             value_var.set(utils.apply_final_value_format(current))
 
-    def format_phone_wrapper(self, phone_var, event=None):
-        """Formats phone during typing and ALWAYS repositions cursor at the end."""
-        current = phone_var.get()
-        if current:
-            formatted = utils.format_phone(current)
-            if current != formatted:
-                phone_var.set(formatted)
-                # SEMPRE move o cursor para o final
-                try:
-                    if event and getattr(event, "widget", None):
-                        event.widget.after_idle(lambda: event.widget.icursor(tk.END))
-                except Exception:
-                    pass
+
 
     def validate_email_wrapper(self, email_var, widget, event=None):
         """Validates email when focus is lost."""
@@ -89,19 +77,6 @@ class InvoiceAddManager:
         else:
             widget.configure(bootstyle=PRIMARY)
 
-    def format_cnpj_wrapper(self, cnpj_var, event=None):
-        """Formats CNPJ during typing and ALWAYS repositions cursor at the end."""
-        current = cnpj_var.get()
-        if current:
-            formatted = utils.format_cnpj(current)
-            if current != formatted:
-                cnpj_var.set(formatted)
-                # SEMPRE move o cursor para o final
-                try:
-                    if event and getattr(event, "widget", None):
-                        event.widget.after_idle(lambda: event.widget.icursor(tk.END))
-                except Exception:
-                    pass
 
     def validate_form(self, date, number, customer, value, phone="", email="", cnpj="", address=""):
         """Validates all form fields."""

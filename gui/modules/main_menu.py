@@ -1,13 +1,7 @@
 # gui/modules/main_menu.py
 """
 Main system interface - grid modularized version.
-Corrections:
-- Own search bar implementation to avoid Entry focus loss during typing.
-- Clear (Limpar) now completely erases the string, restores the table and refocuses the Entry.
-- "Clear Fields" button is only enabled when any form field contains characters.
-- "Clear" button next to search is only enabled when there is text in the search.
-- After table update, focus and cursor are restored using after_idle.
-- Absorbed all SearchManager functionality to simplify code.
+Agora usa funções centralizadas do utils.py para formatação.
 """
 
 import tkinter as tk
@@ -273,40 +267,10 @@ class MainMenu(ttk.Frame):
 
         self.create_form_fields(inner_frame)
 
-    def format_phone_wrapper(self, phone_var, event=None):
-        """Formats phone during typing and ALWAYS repositions cursor at the end."""
-        from core import utils
-
-        current = phone_var.get()
-        if current:
-            formatted = utils.format_phone(current)
-            if current != formatted:
-                phone_var.set(formatted)
-                # SEMPRE move o cursor para o final
-                try:
-                    if event and getattr(event, "widget", None):
-                        event.widget.after_idle(lambda: event.widget.icursor(tk.END))
-                except Exception:
-                    pass
-
-    def format_cnpj_wrapper(self, cnpj_var, event=None):
-        """Formats CNPJ during typing and ALWAYS repositions cursor at the end."""
-        from core import utils
-
-        current = cnpj_var.get()
-        if current:
-            formatted = utils.format_cnpj(current)
-            if current != formatted:
-                cnpj_var.set(formatted)
-                # SEMPRE move o cursor para o final
-                try:
-                    if event and getattr(event, "widget", None):
-                        event.widget.after_idle(lambda: event.widget.icursor(tk.END))
-                except Exception:
-                    pass
-
     def create_form_fields(self, parent):
         """Creates the form fields."""
+        from core import utils
+
         # Emission Date
         ttk.Label(parent, text="Data Emissão*:").grid(
             row=0, column=0, sticky=E, pady=5, padx=(0, 5)
@@ -335,7 +299,9 @@ class MainMenu(ttk.Frame):
         entry_phone.grid(row=0, column=3, sticky=EW, pady=5)
         entry_phone.bind(
             "<KeyRelease>",
-            lambda e: self.format_phone_wrapper(self.variables["phone_var"], e),
+            lambda e: utils.format_with_cursor_reposition(
+                self.variables["phone_var"], utils.format_phone, e
+            ),
         )
 
         # Number
@@ -359,8 +325,8 @@ class MainMenu(ttk.Frame):
         entry_email.grid(row=1, column=3, sticky=EW, pady=5)
         entry_email.bind(
             "<FocusOut>",
-            lambda e: self.add_manager.validate_email_wrapper(
-                self.variables["email_var"], entry_email
+            lambda e: utils.validate_email_with_style(
+                self.variables["email_var"], entry_email, e
             ),
         )
 
@@ -379,7 +345,9 @@ class MainMenu(ttk.Frame):
         entry_cnpj.grid(row=2, column=3, sticky=EW, pady=5)
         entry_cnpj.bind(
             "<KeyRelease>",
-            lambda e: self.format_cnpj_wrapper(self.variables["cnpj_var"], e),
+            lambda e: utils.format_with_cursor_reposition(
+                self.variables["cnpj_var"], utils.format_cnpj, e
+            ),
         )
 
         # Value
@@ -390,14 +358,8 @@ class MainMenu(ttk.Frame):
         entry_value.grid(row=3, column=1, sticky=EW, pady=5, padx=(0, 10))
         entry_value.bind(
             "<KeyRelease>",
-            lambda e: self.add_manager.format_value_wrapper(  # Deve usar o do add_manager
-                self.variables["value_var"], e  # Passar o evento também
-            ),
-        )
-        entry_value.bind(
-            "<KeyRelease>",
-            lambda e: self.format_value_wrapper(  # Usar o wrapper local
-                self.variables["value_var"], e
+            lambda e: utils.format_with_cursor_reposition(
+                self.variables["value_var"], utils.format_typing_value, e
             ),
         )
 
@@ -591,7 +553,7 @@ class MainMenu(ttk.Frame):
         try:
             if term:
                 # Try to use database method first
-                result = self.database.search_notes_by_term(term)
+                result = self.database.search_invoices_by_term(term)
                 self.table_manager.filtered_data = result
             else:
                 self.table_manager.filtered_data = self.table_manager.all_data.copy()
@@ -853,19 +815,3 @@ class MainMenu(ttk.Frame):
 
         if response == "Sim":
             webbrowser.open("https://github.com/diegons490/gerenciador-de-notas-fiscais")
-
-    def format_value_wrapper(self, value_var, event=None):
-        """Local wrapper for value formatting that ALWAYS repositions cursor at the end."""
-        from core import utils
-        
-        current = value_var.get()
-        if current:
-            formatted = utils.format_typing_value(current)
-            if current != formatted:
-                value_var.set(formatted)
-                # SEMPRE move o cursor para o final
-                try:
-                    if event and getattr(event, "widget", None):
-                        event.widget.after_idle(lambda: event.widget.icursor(tk.END))
-                except Exception:
-                    pass
