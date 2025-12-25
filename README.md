@@ -163,7 +163,7 @@ Se você gosta do projeto e deseja contribuir, pode fazer uma doação via Pix u
 **Chave Pix:** `8904ad59-b488-42d8-8ea3-bb008b8dfd95`
 
 <p align="center">
-  <img src="qrcode.png" alt="Doações" />
+  <img src="qr-code.png" alt="Doações" />
 </p>
 
 
