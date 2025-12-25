@@ -144,7 +144,7 @@ class InvoicesTableManager(BaseTableManager):
     """Manages Invoices table."""
 
     def create_table(self, parent):
-        list_frame = ttk.LabelFrame(
+        list_frame = ttk.Labelframe(
             parent, text="Notas Fiscais Cadastradas", bootstyle=INFO
         )
         list_frame.columnconfigure(0, weight=1)
@@ -294,7 +294,7 @@ class CustomersTableManager(BaseTableManager):
     """Manages Customers table."""
 
     def create_table(self, parent):
-        list_frame = ttk.LabelFrame(parent, text="Clientes Cadastrados", bootstyle=INFO)
+        list_frame = ttk.Labelframe(parent, text="Clientes Cadastrados", bootstyle=INFO)
         list_frame.columnconfigure(0, weight=1)
         list_frame.rowconfigure(0, weight=1)
 

@@ -155,7 +155,7 @@ class MainMenu(ttk.Frame):
 
     def create_last_invoice_frame(self):
         """Creates the frame to display the last added invoice."""
-        self.last_invoice_frame = ttk.LabelFrame(
+        self.last_invoice_frame = ttk.Labelframe(
             self.main_container, text="Última Nota Fiscal Adicionada", bootstyle=WARNING
         )
         self.last_invoice_frame.grid(row=3, column=0, sticky="ew", pady=(10, 10))
@@ -181,7 +181,7 @@ class MainMenu(ttk.Frame):
 
     def create_customer_combobox(self):
         """Creates the customer selection combobox (functionality absorbed from SearchManager)."""
-        customer_frame = ttk.LabelFrame(
+        customer_frame = ttk.Labelframe(
             self.main_container, text="Seleção Rápida de Cliente", bootstyle=SUCCESS
         )
         customer_frame.columnconfigure(1, weight=1)
@@ -253,7 +253,7 @@ class MainMenu(ttk.Frame):
 
     def create_form(self):
         """Creates the invoice form."""
-        form_frame = ttk.LabelFrame(
+        form_frame = ttk.Labelframe(
             self.main_container, text="Adicionar/Editar Nota Fiscal", bootstyle=SUCCESS
         )
         form_frame.grid(row=5, column=0, sticky="ew", pady=(10, 0))

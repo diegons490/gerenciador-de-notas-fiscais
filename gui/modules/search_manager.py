@@ -42,7 +42,7 @@ class SearchManager:
         self, parent, on_cliente_selected, limpar_selecao_callback
     ):
         """Cria a combobox de seleção de clientes usando grid."""
-        cliente_frame = ttk.LabelFrame(
+        cliente_frame = ttk.Labelframe(
             parent, text="Seleção Rápida de Cliente", bootstyle=SUCCESS
         )
         cliente_frame.columnconfigure(1, weight=1)

@@ -50,7 +50,7 @@ class ConfigTheme(tb.Frame):
 
 
         # PanedWindow para divisão da tela
-        self.paned_window = tb.PanedWindow(self, orient=HORIZONTAL, bootstyle=SECONDARY)
+        self.paned_window = tb.Panedwindow(self, orient=HORIZONTAL, bootstyle=SECONDARY)
         self.paned_window.grid(row=1, column=0, sticky="nsew", padx=20, pady=10)
 
         # Frame para árvore de temas (40%)

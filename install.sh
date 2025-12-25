@@ -12,41 +12,48 @@ DESKTOP_DIR="$HOME/.local/share/applications"
 echo ">> Verificando dependências..."
 
 MISSING_DEPS=()
+CRITICAL_ERROR=false
 
 # Python
 if ! command -v python3 &>/dev/null; then
     MISSING_DEPS+=("python3")
+    CRITICAL_ERROR=true
 fi
 
-# pip ou pipx
+# pip ou pipx (não crítico, apenas informativo)
 if ! command -v pip3 &>/dev/null && ! command -v pipx &>/dev/null; then
-    MISSING_DEPS+=("pip3 ou pipx")
+    MISSING_DEPS+=("pip3 ou pipx (para instalar dependências Python)")
 fi
 
-# ttkbootstrap
-if ! python3 -c "import ttkbootstrap" &>/dev/null; then
-    MISSING_DEPS+=("ttkbootstrap (pip install ttkbootstrap)")
+# ttkbootstrap (verificação só se python3 existir)
+if command -v python3 &>/dev/null; then
+    if ! python3 -c "import ttkbootstrap" &>/dev/null; then
+        MISSING_DEPS+=("ttkbootstrap (execute: pip install ttkbootstrap)")
+        CRITICAL_ERROR=true
+    fi
+
+    # pillow (python-pillow)
+    if ! python3 -c "import PIL" &>/dev/null; then
+        MISSING_DEPS+=("pillow (execute: pip install pillow)")
+        CRITICAL_ERROR=true
+    fi
 fi
 
-# pillow (python-pillow)
-if ! python3 -c "import PIL" &>/dev/null; then
-    MISSING_DEPS+=("pillow (pip install pillow) ou python-pillow")
-fi
-
-if [ ${#MISSING_DEPS[@]} -gt 0 ]; then
-    echo ">> Dependências ausentes detectadas:"
+# Se houver erro crítico, exibir e abortar
+if [ "$CRITICAL_ERROR" = true ]; then
+    echo ">> ERRO: Dependências críticas ausentes!"
+    echo "A instalação será interrompida. Instale as seguintes dependências primeiro:"
     for dep in "${MISSING_DEPS[@]}"; do
         echo "   - $dep"
     done
     echo ""
-    echo "A aplicação pode não funcionar corretamente sem as dependências acima."
-    echo "Instale-as manualmente antes de usar."
-    echo ""
-else
-    echo "Todas as dependências necessárias foram encontradas."
+    echo "Depois de instalar as dependências, execute este script novamente."
+    exit 1
 fi
 
-echo ">> Instalando $APP_NAME..."
+# Se chegou aqui, todas as dependências críticas estão satisfeitas
+echo ">> Todas as dependências necessárias foram encontradas."
+echo ">> Iniciando instalação do $APP_NAME..."
 
 # Cria pastas necessárias
 mkdir -p "$INSTALL_DIR" "$BIN_DIR" "$ICON_DIR" "$DESKTOP_DIR"

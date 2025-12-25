@@ -1,0 +1,49 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: main.py (Raiz)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "purpose": ["debug-in-terminal"],
+            "problemMatcher": {
+                "owner": "python",
+                "pattern": [
+                    {
+                        "regexp": "^(.*\.py):(\d+):(?:(\d+):)? (.*)$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "message": 4
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Python: Arquivo Atual",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "purpose": ["debug-in-terminal"],
+            "problemMatcher": {
+                "owner": "python",
+                "pattern": [
+                    {
+                        "regexp": "^(.*\.py):(\d+):(?:(\d+):)? (.*)$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "message": 4
+                    }
+                ]
+            }
+        }
+    ]
+}

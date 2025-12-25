@@ -97,7 +97,7 @@ class Report(tb.Frame):
 
     def create_results_area(self, parent):
         """Cria a área de exibição dos resultados."""
-        results_frame = tb.LabelFrame(
+        results_frame = tb.Labelframe(
             parent, text="Resultado do Relatório", bootstyle=INFO
         )
         results_frame.pack(fill=BOTH, expand=True, pady=10)
@@ -139,7 +139,7 @@ class Report(tb.Frame):
 
         back_btn = tb.Button(
             button_container,
-            text="Voltar ao Menu Principal",
+            text="Voltar ao Menu",
             bootstyle=SECONDARY,
             command=lambda: self.controller.handle_event(EventKeys.BACK),
             width=20,

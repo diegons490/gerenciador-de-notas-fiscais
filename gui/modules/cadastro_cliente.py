@@ -158,7 +158,7 @@ class CadastroCliente(tb.Frame):
 
     def create_ultimo_cliente_frame(self, parent):
         """Cria o frame para exibir o último cliente cadastrado."""
-        self.ultimo_cliente_frame = tb.LabelFrame(
+        self.ultimo_cliente_frame = tb.Labelframe(
             parent, text="Último Cliente Cadastrado", bootstyle=WARNING
         )
         self.ultimo_cliente_frame.grid(row=3, column=0, sticky="ew", pady=(10, 10))
@@ -186,7 +186,7 @@ class CadastroCliente(tb.Frame):
 
     def create_formulario(self, parent):
         """Cria o formulário de cadastro/edição"""
-        form_frame = tb.LabelFrame(
+        form_frame = tb.Labelframe(
             parent, text="Cadastrar/Editar Cliente", bootstyle=SUCCESS
         )
         form_frame.grid(row=4, column=0, sticky="ew", pady=(10, 0))

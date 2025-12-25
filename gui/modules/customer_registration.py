@@ -119,7 +119,7 @@ class CustomerRegistration(tb.Frame):
 
     def create_last_customer_frame(self, parent):
         """Creates last customer display frame."""
-        self.last_customer_frame = tb.LabelFrame(
+        self.last_customer_frame = tb.Labelframe(
             parent, text="Último Cliente Cadastrado", bootstyle=WARNING
         )
         self.last_customer_frame.grid(row=3, column=0, sticky="ew", pady=(10, 10))
@@ -145,7 +145,7 @@ class CustomerRegistration(tb.Frame):
 
     def create_form(self, parent):
         """Creates customer form."""
-        form_frame = tb.LabelFrame(parent, text="Cadastrar/Editar Cliente", bootstyle=SUCCESS)
+        form_frame = tb.Labelframe(parent, text="Cadastrar/Editar Cliente", bootstyle=SUCCESS)
         form_frame.grid(row=4, column=0, sticky="ew", pady=(10, 0))
         form_frame.grid_columnconfigure(1, weight=1)
 
