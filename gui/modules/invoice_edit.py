@@ -33,17 +33,43 @@ class InvoiceEditManager:
 
             parsed = False
             if date:
-                for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%Y/%m/%d"):
+                from core import utils
+
+                # Primeiro, validar se a data está em formato válido
+                valid, message = utils.validate_date_input(date)
+
+                if valid:
+                    # Se válida, usar diretamente
                     try:
-                        dt = datetime.strptime(date, fmt)
+                        day, month, year = map(int, date.split('/'))
+                        dt = datetime(year, month, day)
                         date_entry.set_date(dt)
-                        variables["date_var"].set(dt.strftime("%d/%m/%Y"))
+                        variables["date_var"].set(date)
                         parsed = True
-                        break
                     except Exception:
-                        continue
-            if not parsed:
-                variables["date_var"].set(date or "")
+                        pass
+                else:
+                    # Tentar converter de outros formatos
+                    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y"):
+                        try:
+                            dt = datetime.strptime(date, fmt)
+                            formatted_date = dt.strftime("%d/%m/%Y")
+                            date_entry.set_date(dt)
+                            variables["date_var"].set(formatted_date)
+                            parsed = True
+                            break
+                        except Exception:
+                            continue
+
+                if not parsed:
+                    # Se ainda não conseguiu, mostrar aviso
+                    show_warning(parent, f"A data da nota está em um formato inválido: {date}\n\nSerá necessário corrigir para o formato dd/mm/yyyy.")
+                    variables["date_var"].set(date or "")
+            else:
+                # Se não há data, usar a data atual
+                today = datetime.now()
+                date_entry.set_date(today)
+                variables["date_var"].set(today.strftime("%d/%m/%Y"))
 
             variables["number_var"].set(number or "")
             variables["customer_var"].set(customer or "")
@@ -71,15 +97,26 @@ class InvoiceEditManager:
             show_error(parent, f"Erro ao carregar nota: {str(e)}")
             return False
 
-    def update_existing_invoice(self, parent, invoice_id, date, number, customer, 
+    def update_existing_invoice(self, parent, invoice_id, date, number, customer,
                                value, phone, email, cnpj, address):
         """Updates an existing invoice in the database."""
         try:
+            # Validar data novamente antes de atualizar
+            from core import utils
+            valid_date, date_message = utils.validate_date_input(date)
+            if not valid_date:
+                show_error(parent, f"Data inválida: {date_message}")
+                return False
+
             value_decimal = utils.convert_to_decimal(value)
             date_sql = utils.format_sql_date(date)
 
+            if not date_sql:
+                show_error(parent, "Data inválida! Use o formato dd/mm/yyyy.")
+                return False
+
             success = self.database.update_invoice(
-                invoice_id, date_sql, number, customer, value_decimal, 
+                invoice_id, date_sql, number, customer, value_decimal,
                 phone, email, cnpj, address
             )
 

@@ -17,13 +17,13 @@ def format_currency(value: Union[str, float, int], with_symbol: bool = True) -> 
             value_float = float(value)
         else:
             value_str = str(value).strip()
-            
+
             # Remove tudo que não é dígito, ponto ou vírgula
             value_str = re.sub(r"[^\d,.]", "", value_str)
-            
+
             if not value_str:
                 return "R$ 0,00" if with_symbol else "0,00"
-            
+
             # Se tem vírgula e ponto, trata ponto como separador de milhar
             if "," in value_str and "." in value_str:
                 # Remove os pontos (separadores de milhar) e substitui vírgula por ponto
@@ -43,19 +43,19 @@ def format_currency(value: Union[str, float, int], with_symbol: bool = True) -> 
                     if value_str.count(".") > 1:
                         value_str = value_str.replace(".", "")
                     # Senão, mantém como está (será tratado como decimal)
-            
+
             value_float = float(value_str)
 
         # Formata para o padrão brasileiro
         value_str_formatted = f"{value_float:,.2f}"
-        
+
         # Substitui as formatações padrão do Python pelo padrão brasileiro
         parts = value_str_formatted.split(".")
         integer_part = parts[0].replace(",", "X").replace(".", ",").replace("X", ".")
         decimal_part = parts[1] if len(parts) > 1 else "00"
-        
+
         formatted = f"{integer_part},{decimal_part}"
-        
+
         return f"R$ {formatted}" if with_symbol else formatted
 
     except (ValueError, TypeError):
@@ -101,10 +101,10 @@ def validate_currency(value: str) -> bool:
     """Validates Brazilian currency format."""
     if not value:
         return False
-    
+
     # Remove espaços e símbolos de real
     clean_value = re.sub(r"[R\$\s]", "", value.strip())
-    
+
     # Padrões aceitos:
     # 1234,56
     # 1.234,56
@@ -136,10 +136,10 @@ def format_typing_value(value: str) -> str:
     """Formats value during typing to allow proper Brazilian currency input."""
     if not value:
         return value
-    
+
     # Permite apenas dígitos, pontos e vírgulas
     cleaned = re.sub(r"[^\d,.]", "", value)
-    
+
     # Se não tem vírgula, formata como número inteiro com separadores de milhar
     if "," not in cleaned:
         # Remove todos os pontos existentes
@@ -152,7 +152,7 @@ def format_typing_value(value: str) -> str:
                 return formatted
             except (ValueError, TypeError):
                 return cleaned
-    
+
     return cleaned
 
 
@@ -160,7 +160,7 @@ def apply_final_value_format(value: str) -> str:
     """Applies final formatting to value when focus is lost."""
     if not value:
         return value
-    
+
     # Usa a função principal de formatação sem o símbolo
     return format_currency(value, with_symbol=False)
 
@@ -183,9 +183,9 @@ def format_phone(phone: str) -> str:
     """Formats phone number in real time."""
     if not phone:
         return phone
-    
+
     digits = re.sub(r"\D", "", phone)
-    
+
     if len(digits) == 11:
         return f"({digits[:2]}) {digits[2:7]}-{digits[7:]}"
     elif len(digits) == 10:
@@ -216,9 +216,9 @@ def format_cnpj(cnpj: str) -> str:
     """Formats CNPJ in real time."""
     if not cnpj:
         return cnpj
-    
+
     digits = re.sub(r"\D", "", cnpj)
-    
+
     if len(digits) == 14:
         return f"{digits[:2]}.{digits[2:5]}.{digits[5:8]}/{digits[8:12]}-{digits[12:]}"
     else:
@@ -237,13 +237,80 @@ def validate_required_field(value: str, field_name: str = "campo") -> tuple[bool
     return True, ""
 
 
+def format_typing_date(date_str: str) -> str:
+    """
+    Formata uma string de data durante a digitação.
+    Adiciona automaticamente as barras no formato dd/mm/yyyy.
+    """
+    if not date_str:
+        return date_str
+
+    # Remove tudo que não é dígito
+    digits = ''.join(filter(str.isdigit, date_str))
+
+    # Limita a 8 dígitos (para dd/mm/yyyy)
+    if len(digits) > 8:
+        digits = digits[:8]
+
+    # Aplica a máscara de formatação
+    if len(digits) <= 2:
+        return digits
+    elif len(digits) <= 4:
+        return f"{digits[:2]}/{digits[2:]}"
+    else:
+        return f"{digits[:2]}/{digits[2:4]}/{digits[4:]}"
+
+
+def validate_date_with_message(date_str: str) -> tuple[bool, str]:
+    """
+    Valida uma string de data no formato dd/mm/yyyy.
+    Retorna (True, "") se válida, (False, mensagem) se inválida.
+    """
+    # Primeiro, verifica se a string tem o formato básico
+    if not date_str or len(date_str) != 10:
+        return False, "Data deve ter 10 caracteres (dd/mm/yyyy)."
+
+    if date_str[2] != '/' or date_str[5] != '/':
+        return False, "Formato inválido! Use dd/mm/yyyy."
+
+    # Tenta converter usando a função existente
+    if not validate_date(date_str):
+        return False, "Data inválida! Verifique dia, mês e ano."
+
+    return True, ""
+
+
+def validate_date_input(date_str: str) -> tuple[bool, str]:
+    """
+    Validação mais completa para entrada do usuário.
+    Verifica formato e validade da data.
+    """
+    if not date_str:
+        return False, "Data não pode estar vazia."
+
+    # Verifica se tem pelo menos 8 dígitos (ddmmyyyy)
+    digits = ''.join(filter(str.isdigit, date_str))
+    if len(digits) < 8:
+        return False, "Data incompleta. Use dd/mm/yyyy."
+
+    # Formata para o padrão correto
+    formatted = format_typing_date(digits)
+    if len(formatted) != 10:
+        return False, "Data incompleta. Use dd/mm/yyyy."
+
+    # Valida usando a função existente
+    return validate_date_with_message(formatted)
+
+
 def validate_invoice_form(date: str, number: str, customer: str, value: str) -> tuple[bool, str]:
     """Validates complete invoice form."""
     if not all([date, number, customer, value]):
         return False, "Preencha todos os campos obrigatórios!"
 
-    if not validate_date(date):
-        return False, "Data inválida! Use o formato DD/MM/AAAA."
+    # Valida a data com mensagem detalhada
+    valid_date, date_message = validate_date_input(date)
+    if not valid_date:
+        return False, f"Data inválida: {date_message}"
 
     if not validate_invoice_number(number):
         return False, "Número da nota deve conter apenas dígitos!"
@@ -281,7 +348,7 @@ def validate_customer_form(name: str, phone: str = "", email: str = "", cnpj: st
 def format_with_cursor_reposition(value_var, format_function, event=None):
     """
     Generic function to format values and reposition cursor.
-    
+
     Args:
         value_var: StringVar to format
         format_function: Function that takes string and returns formatted string
@@ -303,7 +370,7 @@ def format_with_cursor_reposition(value_var, format_function, event=None):
 def validate_email_with_style(email_var, widget, event=None):
     """
     Validates email and updates widget style.
-    
+
     Args:
         email_var: StringVar with email value
         widget: Widget to apply style

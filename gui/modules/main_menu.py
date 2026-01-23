@@ -48,7 +48,7 @@ class MainMenu(ttk.Frame):
         self.search_var = tk.StringVar()
         self.search_entry = None  # created in create_search_bar
         self.btn_search_clear = None
-        
+
         # Customer combobox (functionality absorbed from SearchManager)
         self.customer_combobox = None
 
@@ -275,6 +275,7 @@ class MainMenu(ttk.Frame):
         ttk.Label(parent, text="Data Emissão*:").grid(
             row=0, column=0, sticky=E, pady=5, padx=(0, 5)
         )
+
         self.date_entry = DateEntry(
             parent,
             dateformat="%d/%m/%Y",
@@ -283,13 +284,65 @@ class MainMenu(ttk.Frame):
             bootstyle=PRIMARY,
         )
         self.date_entry.grid(row=0, column=1, sticky=EW, pady=5, padx=(0, 10))
+
+        # Vincular eventos para formatação e validação manual
+        date_var = self.variables["date_var"]
+
+        def on_date_keyrelease(event):
+            """Formata automaticamente enquanto digita."""
+            current = self.date_entry.entry.get()
+            formatted = utils.format_typing_date(current)
+            if current != formatted:
+                self.date_entry.entry.delete(0, tk.END)
+                self.date_entry.entry.insert(0, formatted)
+                self.date_entry.entry.icursor(tk.END)
+            date_var.set(formatted)
+
+        def on_date_focusout(event):
+            """Valida a data quando perde o foco."""
+            current = self.date_entry.entry.get()
+            if current:
+                # Valida a data
+                valid, message = utils.validate_date_input(current)
+                if not valid:
+                    from ..utils.popups import show_error
+                    show_error(self, f"Data inválida!\n\n{message}\n\nUse o formato dd/mm/yyyy.")
+
+                    # Restaurar data atual
+                    today = datetime.now().strftime("%d/%m/%Y")
+                    self.date_entry.entry.delete(0, tk.END)
+                    self.date_entry.entry.insert(0, today)
+                    self.date_entry.set_date(datetime.now())
+                    date_var.set(today)
+                else:
+                    # Atualizar o DateEntry com a data válida
+                    try:
+                        # Garantir formato correto
+                        digits = ''.join(filter(str.isdigit, current))
+                        if len(digits) >= 8:
+                            formatted_date = utils.format_typing_date(digits)
+                            day, month, year = map(int, [formatted_date[:2], formatted_date[3:5], formatted_date[6:]])
+                            dt = datetime(year, month, day)
+                            self.date_entry.set_date(dt)
+                            date_var.set(formatted_date)
+                    except Exception:
+                        pass
+
+        # Vincular eventos
+        self.date_entry.entry.bind("<KeyRelease>", on_date_keyrelease)
+        self.date_entry.entry.bind("<FocusOut>", on_date_focusout)
+
+        # Também manter o binding original para seleção via calendário
         self.date_entry.bind(
             "<<DateEntrySelected>>",
             lambda e: self.add_manager.on_date_selected(
-                self.date_entry, self.variables["date_var"]
+                self.date_entry, date_var
             ),
         )
-        self.variables["date_var"].set(datetime.now().strftime("%d/%m/%Y"))
+
+        # Configurar data inicial
+        initial_date = datetime.now().strftime("%d/%m/%Y")
+        date_var.set(initial_date)
 
         # Phone
         ttk.Label(parent, text="Telefone:").grid(
@@ -522,10 +575,10 @@ class MainMenu(ttk.Frame):
         try:
             btn.config(state=state)
         except Exception:
-            pass    
+            pass
 
     def update_last_invoice(self):
-        """Updates the frame with the last invoice data."""
+        """Updates the frame with the last added invoice data."""
         last_invoice = self.database.get_last_invoice()
 
         if last_invoice:

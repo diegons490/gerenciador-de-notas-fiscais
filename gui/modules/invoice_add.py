@@ -41,6 +41,19 @@ class InvoiceAddManager:
         except Exception:
             pass
 
+    def format_date_wrapper(self, date_entry, date_var, event=None):
+        """Formata a data durante a digitação."""
+        from core import utils
+
+        current = date_entry.entry.get()
+        if current:
+            formatted = utils.format_typing_date(current)
+            if current != formatted:
+                date_entry.entry.delete(0, tk.END)
+                date_entry.entry.insert(0, formatted)
+                date_entry.entry.icursor(tk.END)
+            date_var.set(formatted)
+
     def validate_invoice_number_wrapper(self, number_var, event=None):
         """Validates and formats invoice number."""
         current = number_var.get()
@@ -98,8 +111,19 @@ class InvoiceAddManager:
     def save_new_invoice(self, parent, date, number, customer, value, phone, email, cnpj, address):
         """Saves a new invoice in the database."""
         try:
+            # Validar data novamente antes de salvar
+            from core import utils
+            valid_date, date_message = utils.validate_date_input(date)
+            if not valid_date:
+                show_error(parent, f"Data inválida: {date_message}")
+                return False
+
             value_decimal = utils.convert_to_decimal(value)
             date_sql = utils.format_sql_date(date)
+
+            if not date_sql:
+                show_error(parent, "Data inválida! Use o formato dd/mm/yyyy.")
+                return False
 
             success = self.database.insert_invoice(
                 date_sql, number, customer, value_decimal, phone, email, cnpj, address
